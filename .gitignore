@@ -1,0 +1,15 @@
+.idea/*
+.vscode/*
+*.iml
+**/target
+**/*.json
+/log 
+**/logs
+**/*.exe
+**/**/.DS_Store
+**/tao.yaml
+tao.yaml
+bin/*
+**/broker_data
+/taobff/taobff
+/data
