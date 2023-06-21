@@ -29,7 +29,7 @@ func testMarshal() error {
 	}
 	log.Printf("%+v", omt)
 
-	tmt := &infra.TsMetaData{Start: 1, End: 2, Addr: 8, Refblock: 0, Refitems: 123}
+	tmt := &infra.TsMetaData{Start: 1000, End: 2789564123, Addr: 8000000, Refblock: 107896543, Refitems: 1230098743}
 	var network bytes.Buffer
 	enc := gob.NewEncoder(&network)
 	err = enc.Encode(tmt)
@@ -55,7 +55,7 @@ func testWr() {
 	conf := "../config/tao.yaml"
 	common.BaseInit(conf)
 	tsd := infra.Gettsdb()
-	tbl := tsd.OpenTable("btc_usd")
+	tbl := tsd.OpenAppender("btc_usd")
 	data := []byte("Hello world")
 	now := uint64(1000000)
 	msg := &pb.TsdbData{Timestamp: now, Data: data}
@@ -66,7 +66,8 @@ func testWr() {
 	}
 
 	var times uint64 = 1
-	for times <= 100000 {
+	var yiyi uint64 = 100000000
+	for times <= yiyi {
 		msg.Timestamp = now + times
 		err = tbl.Append(msg)
 		if err != nil {

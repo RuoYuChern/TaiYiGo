@@ -4,14 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/edsrzf/mmap-go"
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
 	"taiyigo.com/facade/tsdb"
@@ -20,11 +18,11 @@ import (
 const gDATA_FILE_SIZE = (1 << 30)
 const gINDEX_FILE_SIZE = (200 << 20)
 const gMETA_FILE_SIZE = (5 << 20)
-const gDAT_FILE_TPL = "%s/data_%d.dat"
-const gIDX_FILE_TPL = "%s/idx_%d.dat"
-const gDAT_PREFIX = "data"
-
-//const gIDX_PREFIX = "idx"
+const gDAT_FILE_TPL = "%s/dat_b_%d"
+const gIDX_FILE_TPL = "%s/idx_b_%d"
+const gDAT_PREFIX = "dat"
+const gIo_Size = (2 << 20)
+const gFlush_Size = (200 << 20)
 
 type tsdbEfull struct {
 }
@@ -32,38 +30,55 @@ type tsdbEfull struct {
 type tsdbEEmpty struct {
 }
 
-type TsdbFile struct {
+type tsdbIoBacth struct {
+	buf    []byte
+	offset int
+	file   *os.File
+}
+
+type tsdbFile struct {
+	maxSize  int64
+	dir      string
+	name     string
+	block    int32
+	size     int64
+	cacheLen int64
+	wcache   *tsdbIoBacth
+	file     *os.File
+}
+
+type tsdbFMMap struct {
 	maxSize int64
+	name    string
+	size    int64
+	wcache  *tsdbIoBacth
+	file    *os.File
+}
+
+type TsdbAppender struct {
+	id      string
 	dir     string
-	name    string
-	block   int32
-	size    int64
-	file    *os.File
+	metaLen int64
+	idxLen  int64
+	meta    *tsdbFMMap
+	widx    *tsdbFMMap
+	wdat    *tsdbFile
+	curMeta *TsMetaData
 }
 
-type TsdbFMMap struct {
-	maxSize int64
-	name    string
-	size    int64
-	file    *os.File
-	fmap    mmap.MMap
-}
-
-type TsdbTable struct {
-	id         string
-	dir        string
-	metaLen    int64
-	idxLen     int64
-	headLen    int64
-	meta       *TsdbFMMap
-	widx       *TsdbFMMap
-	wdat       *TsdbFile
-	curMeta    *tsdb.TsdbMeta
-	metaHeader *tsdb.TsdbHeader
+type TsdbQuery struct {
+	id      string
+	dir     string
+	metaLen int64
+	idxLen  int64
+	offset  int32
+	meta    *tsdbFMMap
+	widx    *tsdbFMMap
+	wdat    *tsdbFile
 }
 
 type Tsdb struct {
-	tblMap map[string]*TsdbTable
+	tblMap map[string]*TsdbAppender
 	mu     sync.Mutex
 }
 
@@ -73,18 +88,19 @@ var gtsdbOnce sync.Once
 // funcitons
 func Gettsdb() *Tsdb {
 	gtsdbOnce.Do(func() {
-		gtsdb = &Tsdb{tblMap: make(map[string]*TsdbTable)}
+		gtsdb = &Tsdb{tblMap: make(map[string]*TsdbAppender)}
 	})
 	return gtsdb
 }
 
-func getItemLen(item proto.Message) (int64, error) {
-	out, err := proto.Marshal(item)
-	if err != nil {
-		common.Logger.Warnf("marshal item failed:%s", err.Error())
-		return -1, err
-	}
-	return int64(len(out)), nil
+// private functions
+func newMapper(name string, maxSize int64) *tsdbFMMap {
+	return &tsdbFMMap{maxSize: maxSize, name: name}
+}
+
+func newIoBatch(file *os.File) *tsdbIoBacth {
+	iob := &tsdbIoBacth{buf: make([]byte, gIo_Size), offset: 0, file: file}
+	return iob
 }
 
 func isError(err error, target error) bool {
@@ -111,8 +127,8 @@ func getTargetBlockNo(dir string, prexfix string) (int, error) {
 		if !strings.HasPrefix(d.Name(), prexfix) {
 			return nil
 		}
-		parts := strings.SplitAfterN(d.Name(), "_", 2)
-		block, err := strconv.Atoi(parts[1])
+		parts := strings.SplitN(d.Name(), "_", 3)
+		block, err := strconv.Atoi(parts[2])
 		if err != nil {
 			common.Logger.Warnf("Atoi %s failed:%s", d.Name(), err.Error())
 			return nil
@@ -133,7 +149,7 @@ func getTargetBlockNo(dir string, prexfix string) (int, error) {
 }
 
 // Tsdb
-func (tsdb *Tsdb) OpenTable(id string) *TsdbTable {
+func (tsdb *Tsdb) OpenAppender(id string) *TsdbAppender {
 	tsdb.mu.Lock()
 	defer tsdb.mu.Unlock()
 	tstble, ok := tsdb.tblMap[id]
@@ -141,10 +157,15 @@ func (tsdb *Tsdb) OpenTable(id string) *TsdbTable {
 		return tstble
 	}
 
-	tstble = &TsdbTable{id: id}
+	tstble = &TsdbAppender{id: id}
 	tstble.Open()
 	tsdb.tblMap[id] = tstble
 	return tstble
+}
+
+func (tsdb *Tsdb) OpenQuery(id string) *TsdbQuery {
+	tblQuery := &TsdbQuery{id: id}
+	return tblQuery
 }
 
 func (tsdb *Tsdb) Close() {
@@ -152,7 +173,7 @@ func (tsdb *Tsdb) Close() {
 		v.Close()
 	}
 
-	tsdb.tblMap = make(map[string]*TsdbTable)
+	tsdb.tblMap = make(map[string]*TsdbAppender)
 }
 
 func (tsdb *Tsdb) remove(id string) {
@@ -161,208 +182,178 @@ func (tsdb *Tsdb) remove(id string) {
 	delete(tsdb.tblMap, id)
 }
 
-// TsdbTable
-func (tstble *TsdbTable) Open() {
-
-	tstble.dir = fmt.Sprintf("%s/tsdb/%s", common.Conf.Infra.FsDir, tstble.id)
-	os.MkdirAll(tstble.dir, 0755)
+// TsdbAppender
+func (tbl *TsdbAppender) Open() {
+	tbl.dir = fmt.Sprintf("%s/tsdb/%s", common.Conf.Infra.FsDir, tbl.id)
+	os.MkdirAll(tbl.dir, 0755)
 	// 获取meta 和 idx 大小
 	// 这里有个坑:数值类型的如果赋值为0,序列化的时候不会被序列化，导致长度为0
-	mt := &tsdb.TsdbMeta{Start: 1, End: 1, Addr: 1, Refblock: 1, Refitems: 1}
-	tstble.metaLen, _ = getItemLen(mt)
-
-	idx := &tsdb.TsdbIndex{Timestamp: 1, Block: 1, Offset: 1, Len: 1}
-	tstble.idxLen, _ = getItemLen(idx)
-
-	hd := &tsdb.TsdbHeader{Items: 1, Version: 1}
-	tstble.headLen, _ = getItemLen(hd)
-	common.Logger.Infof("metaLen:%d, idxLen:%d, headLen:%d", tstble.metaLen, tstble.idxLen, tstble.headLen)
+	tbl.metaLen = int64(gTMD_LEN)
+	tbl.idxLen = int64(gTID_LEN)
+	common.Logger.Infof("metaLen:%d, idxLen:%d", tbl.metaLen, tbl.idxLen)
 }
 
-func (tstble *TsdbTable) Close() {
-	if tstble.wdat != nil {
+func (tbl *TsdbAppender) Close() {
+	if tbl.wdat != nil {
 		//关闭wdat
-		tstble.wdat.Close()
-		tstble.wdat = nil
+		tbl.wdat.close()
+		tbl.wdat = nil
 	}
-	if tstble.widx != nil {
+	if tbl.widx != nil {
 		//关闭widx
-		tstble.widx.Close()
-		tstble.widx = nil
+		tbl.widx.close()
+		tbl.widx = nil
 	}
 
-	//保存元数据
-	if tstble.metaHeader != nil {
-		tstble.meta.WriteAt(0, tstble.metaHeader)
-		tstble.metaHeader = nil
+	if tbl.curMeta != nil {
+		tbl.meta.writeAt(int64(tbl.curMeta.Addr), tbl.curMeta)
+		tbl.curMeta = nil
 	}
 
-	if tstble.curMeta != nil {
-		tstble.meta.WriteAt(tstble.curMeta.Addr, tstble.curMeta)
-		tstble.curMeta = nil
-	}
-
-	if tstble.meta != nil {
+	if tbl.meta != nil {
 		// 关闭meta
-		tstble.meta.Close()
+		tbl.meta.close()
 	}
 
-	Gettsdb().remove(tstble.id)
+	Gettsdb().remove(tbl.id)
 }
 
-func (tstble *TsdbTable) Append(data *tsdb.TsdbData) error {
-	err := tstble.getCurMeta()
+func (tbl *TsdbAppender) Append(data *tsdb.TsdbData) error {
+	err := tbl.getCurMeta()
 	if isError(err, tsdbEEmpty{}) {
 		return err
 	}
-	// 初始化
-	if tstble.curMeta == nil {
-		tstble.curMeta = &tsdb.TsdbMeta{Start: data.Timestamp, End: math.MaxInt64, Addr: tstble.headLen, Refblock: 0, Refitems: 0}
-	}
 
-	if data.Timestamp < tstble.curMeta.Start {
+	if (tbl.curMeta != nil) && (data.Timestamp < tbl.curMeta.End) {
 		return errors.New("data is old")
 	}
+
+	// 初始化
+	if tbl.curMeta == nil {
+		tbl.curMeta = &TsMetaData{Start: data.Timestamp, End: data.Timestamp + 1, Addr: 0, Refblock: 0, Refitems: 0}
+	}
 	//
-	err = tstble.getWrite()
+	err = tbl.getWrite()
 	if err != nil {
 		return err
 	}
 
-	ref, err := tstble.wdat.Append(data)
+	ref, err := tbl.wdat.append(data)
 	if err != nil {
 		return err
 	}
 	//填充时间
 	ref.Timestamp = data.Timestamp
 	// 保存index
-	err = tstble.saveIndex(ref)
+	err = tbl.saveIndex(ref)
 	return err
 }
 
-func (tstble *TsdbTable) saveIndex(tidx *tsdb.TsdbIndex) error {
-	if tstble.widx == nil {
+func (tbl *TsdbAppender) saveIndex(tidx *TsIndexData) error {
+	curMeta := tbl.curMeta
+	if tbl.widx == nil {
 		//打开IDX
-		name := fmt.Sprintf(gIDX_FILE_TPL, tstble.dir, tstble.curMeta.Refblock)
-		tstble.widx = &TsdbFMMap{maxSize: gINDEX_FILE_SIZE, name: name}
-		err := tstble.widx.Open()
+		name := fmt.Sprintf(gIDX_FILE_TPL, tbl.dir, curMeta.Refblock)
+		tbl.widx = newMapper(name, gINDEX_FILE_SIZE)
+		err := tbl.widx.open(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
 			common.Logger.Infof("open %s failed:%s", name, err.Error())
 			return err
 		}
 	}
 
-	err := tstble.widx.Append(tidx)
+	err := tbl.widx.append(tidx)
 	if isError(err, tsdbEfull{}) {
-		common.Logger.Infof("Append idx_%d failed:%s", tstble.curMeta.Refblock, err.Error())
+		common.Logger.Infof("Append idx_%d failed:%s", curMeta.Refblock, err.Error())
 		return err
 	}
 
 	// 之前的idx文件已经写满了，换个新的
 	if isTargetError(err, tsdbEfull{}) {
 		//将当前保存
-		tstble.curMeta.End = tidx.Timestamp
-		err = tstble.meta.WriteAt(tstble.curMeta.Addr, tstble.curMeta)
+		common.Logger.Infof("%s is full", tbl.widx.name)
+		err = tbl.meta.writeAt(int64(curMeta.Addr), curMeta)
 		if err != nil {
 			common.Logger.Infof("Save ref, write meta failed:%s", err.Error())
 			return err
 		}
-		//计算当前的headlen
-		items := (tstble.curMeta.Addr-tstble.headLen)/tstble.metaLen + 1
-		if items > int64(tstble.metaHeader.Items) {
-			tstble.metaHeader.Items = uint32(items)
-			tstble.metaHeader.Version = tstble.metaHeader.Version + 1
-		}
 		// 换新的idx
-		tstble.widx.Close()
-		name := fmt.Sprintf(gIDX_FILE_TPL, tstble.dir, tstble.curMeta.Refblock+1)
-		tstble.widx = &TsdbFMMap{maxSize: gINDEX_FILE_SIZE, name: name}
-		err = tstble.widx.Open()
+		tbl.widx.close()
+		name := fmt.Sprintf(gIDX_FILE_TPL, tbl.dir, curMeta.Refblock+1)
+		tbl.widx = newMapper(name, gINDEX_FILE_SIZE)
+		err = tbl.widx.open(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
 			common.Logger.Infof("open %s failed:%s", name, err.Error())
 			return err
 		}
-		err = tstble.widx.Append(tidx)
+		err = tbl.widx.append(tidx)
 		if err != nil {
 			common.Logger.Infof("append %s failed:%s", name, err.Error())
 			return err
 		}
 		// 获取新的metaCure
-		addr := tstble.curMeta.Addr + tstble.metaLen
-		refBlock := tstble.curMeta.Refblock + 1
-		tstble.curMeta = &tsdb.TsdbMeta{Start: tidx.Timestamp, End: math.MaxInt64, Addr: addr, Refblock: refBlock, Refitems: 1}
-		// 更新header
-		tstble.metaHeader.Items = tstble.metaHeader.Items + 1
-		tstble.metaHeader.Version = tstble.metaHeader.Version + 1
-		tstble.meta.WriteAt(0, tstble.metaHeader)
+		addr := curMeta.Addr + uint64(tbl.metaLen)
+		refBlock := curMeta.Refblock + 1
+		tbl.curMeta = &TsMetaData{Start: tidx.Timestamp, End: tidx.Timestamp + 1, Addr: addr, Refblock: refBlock, Refitems: 1}
 	} else {
-		tstble.curMeta.Refitems = tstble.curMeta.Refitems + 1
+		curMeta.End = tidx.Timestamp + 1
+		curMeta.Refitems = curMeta.Refitems + 1
 	}
-	err = tstble.meta.WriteAt(tstble.curMeta.Addr, tstble.curMeta)
-	return err
+	return nil
 }
 
-func (tstble *TsdbTable) getWrite() error {
-	if tstble.wdat != nil {
+func (tbl *TsdbAppender) getWrite() error {
+	if tbl.wdat != nil {
 		return nil
 	}
 
-	block, err := getTargetBlockNo(tstble.dir, gDAT_PREFIX)
+	block, err := getTargetBlockNo(tbl.dir, gDAT_PREFIX)
 	if err != nil {
 		return nil
 	}
 
-	tstble.wdat = &TsdbFile{maxSize: gDATA_FILE_SIZE, dir: tstble.dir, block: int32(block)}
-	return tstble.wdat.Open()
+	tbl.wdat = &tsdbFile{maxSize: gDATA_FILE_SIZE, dir: tbl.dir, block: int32(block)}
+	return tbl.wdat.open(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 }
 
-func (tstble *TsdbTable) getCurMeta() error {
-	if tstble.curMeta != nil {
+func (tbl *TsdbAppender) getCurMeta() error {
+	if tbl.curMeta != nil {
 		return nil
 	}
 	//
-	name := fmt.Sprintf("%s/tsdb/%s/meta.dat", common.Conf.Infra.FsDir, tstble.id)
-	tstble.meta = &TsdbFMMap{maxSize: gMETA_FILE_SIZE, name: name}
-	err := tstble.meta.Open()
+	name := fmt.Sprintf("%s/tsdb/%s/super_meta", common.Conf.Infra.FsDir, tbl.id)
+	tbl.meta = newMapper(name, gMETA_FILE_SIZE)
+	err := tbl.meta.open(os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		common.Logger.Infof("fmap open %s failed:%s", name, err.Error())
 		return err
 	}
-	//
-	tstble.metaHeader = &tsdb.TsdbHeader{Items: 0, Version: 0}
-	if tstble.meta.size >= tstble.headLen {
-		common.Logger.Infof("meta size:%d, headLen:%d", tstble.meta.size, tstble.headLen)
-		err = tstble.meta.ReadAt(0, tstble.headLen, tstble.metaHeader)
-	} else {
-		//写入meta
-		err = tstble.meta.WriteAt(0, tstble.metaHeader)
+
+	if tbl.meta.size == 0 {
+		return nil
 	}
 
-	if err != nil {
-		common.Logger.Infof("meta header opt %s failed:%s", name, err.Error())
-		return err
+	//比较大小是否合法
+	if (tbl.meta.size % tbl.metaLen) != 0 {
+		return errors.New("meta size is error")
 	}
 
-	if tstble.metaHeader.Items == 0 {
-		return tsdbEEmpty{}
-	}
-
-	tstble.curMeta = &tsdb.TsdbMeta{}
+	tbl.curMeta = &TsMetaData{}
 	// 获取最新的一个metadata
-	offset := tstble.headLen + (int64(tstble.metaHeader.Items-1) * tstble.metaLen)
-	//tstble.curMeta.Addr = offset
-	err = tstble.meta.ReadAt(offset, tstble.metaLen, tstble.curMeta)
+	offset := tbl.meta.size - tbl.metaLen
+	err = tbl.meta.readAt(offset, tbl.metaLen, tbl.curMeta)
 	if err != nil {
 		common.Logger.Infof("meta read %s failed:%s", name, err.Error())
 		return err
 	}
+	common.Logger.Infof("%s cure meta:%+v", tbl.id, tbl.curMeta)
 
 	return nil
 }
 
 // TsdbFMMap
-func (tsfm *TsdbFMMap) Open() error {
-	f, err := os.OpenFile(tsfm.name, os.O_RDWR|os.O_CREATE, 0644)
+func (tsfm *tsdbFMMap) open(flag int, perm os.FileMode) error {
+	f, err := os.OpenFile(tsfm.name, flag, perm)
 	if err != nil {
 		common.Logger.Warnf("Open file %s failed:%s", tsfm.name, err.Error())
 		return err
@@ -375,50 +366,17 @@ func (tsfm *TsdbFMMap) Open() error {
 		f.Close()
 		return err
 	}
-	if info.Size() == 0 {
-		//map 要初始化文件大小
-		err = f.Truncate(tsfm.maxSize)
-		if err != nil {
-			common.Logger.Warnf("open file %s truncate failed:%s", tsfm.name, err.Error())
-			//关闭文件
-			f.Close()
-			return err
-		}
-	}
-
 	tsfm.file = f
 	tsfm.size = info.Size()
-	tsfm.fmap, err = mmap.Map(tsfm.file, mmap.RDWR, 0)
-	if err != nil {
-		common.Logger.Warnf("open file %s map failed:%s", tsfm.name, err.Error())
-		//关闭文件
-		f.Close()
-		return err
+	if (os.O_APPEND & flag) > 0 {
+		tsfm.wcache = newIoBatch(tsfm.file)
 	}
-
-	common.Logger.Infof("%s len:%d", tsfm.name, len(tsfm.fmap))
-
+	common.Logger.Infof("%s len:%d, cap:%d", tsfm.name, tsfm.size, tsfm.maxSize)
 	return nil
 }
 
-func (tsfm *TsdbFMMap) Lock() {
-	err := tsfm.fmap.Lock()
-	if err != nil {
-		common.Logger.Infof("lock file:%s failed:%s", tsfm.name, err.Error())
-		return
-	}
-}
-
-func (tsfm *TsdbFMMap) Unlock() {
-	err := tsfm.fmap.Unlock()
-	if err != nil {
-		common.Logger.Infof("unlock file:%s failed:%s", tsfm.name, err.Error())
-		return
-	}
-}
-
-func (tsfm *TsdbFMMap) WriteAt(offset int64, msg proto.Message) error {
-	out, err := proto.Marshal(msg)
+func (tsfm *tsdbFMMap) writeAt(offset int64, msg TsData) error {
+	out, err := msg.MarshalBinary()
 	if err != nil {
 		common.Logger.Infof("Write %s marshal failed:%s", tsfm.name, err.Error())
 		return err
@@ -426,35 +384,46 @@ func (tsfm *TsdbFMMap) WriteAt(offset int64, msg proto.Message) error {
 
 	wl := int64(len(out))
 	if (offset + wl) >= tsfm.maxSize {
-		common.Logger.Info("Write out of bound:%d >= %d", (offset + wl), tsfm.size)
+		common.Logger.Infof("Write %s out of bound:%d >= %d", tsfm.name, (offset + wl), tsfm.maxSize)
 		return &tsdbEfull{}
 	}
 
-	copy(tsfm.fmap[offset:], out)
+	_, err = tsfm.file.WriteAt(out, offset)
+	if err != nil {
+		common.Logger.Infof("Write %s failed:%s", tsfm.name, err.Error())
+		return err
+	}
+
 	if (offset + wl) > tsfm.size {
 		tsfm.size = (offset + wl)
 	}
 	return nil
 }
 
-func (tsfm *TsdbFMMap) ReadAt(offset int64, len int64, msg proto.Message) error {
-	if (offset + len) >= tsfm.size {
+func (tsfm *tsdbFMMap) readAt(offset int64, len int64, msg TsData) error {
+	if (offset + len) > tsfm.size {
 		common.Logger.Infof("Read out of bound:%d >= %d", (offset + len), tsfm.size)
 		return errors.New("out of bound")
 	}
+
 	dat := make([]byte, len)
-	copy(dat, tsfm.fmap)
-	err := proto.Unmarshal(dat, msg)
+	_, err := tsfm.file.ReadAt(dat, offset)
 	if err != nil {
-		common.Logger.Infof("Unmarshal %s failed:%s", tsfm.name, err.Error())
+		common.Logger.Infof("Read %s failed:%s", tsfm.name, err.Error())
+		return err
+	}
+
+	err = msg.UnmarshalBinary(dat)
+	if err != nil {
+		common.Logger.Infof("Read %s unmarshal failed:%s", tsfm.name, err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (tsfm *TsdbFMMap) Append(msg proto.Message) error {
-	out, err := proto.Marshal(msg)
+func (tsfm *tsdbFMMap) append(msg TsData) error {
+	out, err := msg.MarshalBinary()
 	if err != nil {
 		common.Logger.Infof("Append %s marshal failed:%s", tsfm.name, err.Error())
 		return err
@@ -462,33 +431,35 @@ func (tsfm *TsdbFMMap) Append(msg proto.Message) error {
 
 	wl := int64(len(out))
 	if (tsfm.size + wl) >= tsfm.maxSize {
-		common.Logger.Info("Write out of bound:%d >= %d", (tsfm.size + wl), tsfm.size)
+		common.Logger.Infof("Append %s out of bound:%d + %d >= %d", tsfm.name, tsfm.size, wl, tsfm.maxSize)
 		return tsdbEfull{}
 	}
-	copy(tsfm.fmap[tsfm.size:], out)
+
+	err = tsfm.wcache.append(out)
+	if err != nil {
+		common.Logger.Infof("Append %s failed:%s", tsfm.name, err.Error())
+		return err
+	}
+
 	tsfm.size += wl
 	return nil
 }
 
-func (tsfm *TsdbFMMap) Flush() {
-	tsfm.fmap.Flush()
-}
-
-func (tsfm *TsdbFMMap) Close() {
-	if tsfm.fmap != nil {
-		tsfm.fmap.Flush()
-		tsfm.fmap.Unmap()
+func (tsfm *tsdbFMMap) close() {
+	if tsfm.wcache != nil {
+		tsfm.wcache.flush()
+		tsfm.wcache = nil
 	}
-
 	if tsfm.file != nil {
 		tsfm.file.Close()
+		tsfm.file = nil
 	}
 }
 
 // TsdbFile
-func (tsf *TsdbFile) Open() error {
+func (tsf *tsdbFile) open(flag int, perm os.FileMode) error {
 	tsf.name = fmt.Sprintf(gDAT_FILE_TPL, tsf.dir, tsf.block)
-	file, err := os.OpenFile(tsf.name, os.O_RDWR|os.O_CREATE, 0755)
+	file, err := os.OpenFile(tsf.name, flag, perm)
 	if err != nil {
 		common.Logger.Warnf("Open file %s failed:%s", tsf.name, err.Error())
 		return err
@@ -503,21 +474,28 @@ func (tsf *TsdbFile) Open() error {
 
 	tsf.file = file
 	tsf.size = info.Size()
+	if (os.O_APPEND & flag) > 0 {
+		tsf.wcache = newIoBatch(tsf.file)
+	}
 	return nil
 }
 
-func (tsf *TsdbFile) Close() {
+func (tsf *tsdbFile) close() {
+	if tsf.wcache != nil {
+		tsf.wcache.flush()
+	}
+
 	if tsf.file != nil {
 		tsf.file.Close()
 		tsf.file = nil
 	}
 }
 
-func (tsf *TsdbFile) isFull(dataLen int64) bool {
+func (tsf *tsdbFile) isFull(dataLen int64) bool {
 	return ((dataLen + tsf.size) >= tsf.maxSize)
 }
 
-func (tsf *TsdbFile) ReadAt(offset int64, len int, msg proto.Message) error {
+func (tsf *tsdbFile) readAt(offset int64, len int, msg proto.Message) error {
 	dat := make([]byte, len)
 	n, err := tsf.file.ReadAt(dat, offset)
 	if err != nil {
@@ -537,7 +515,7 @@ func (tsf *TsdbFile) ReadAt(offset int64, len int, msg proto.Message) error {
 	return nil
 }
 
-func (tsf *TsdbFile) Append(msg proto.Message) (*tsdb.TsdbIndex, error) {
+func (tsf *tsdbFile) append(msg proto.Message) (*TsIndexData, error) {
 	out, err := proto.Marshal(msg)
 	if err != nil {
 		common.Logger.Infof("Append %s marshal failed:%s", tsf.name, err.Error())
@@ -547,32 +525,80 @@ func (tsf *TsdbFile) Append(msg proto.Message) (*tsdb.TsdbIndex, error) {
 	dataLen := int64(len(out))
 	if tsf.isFull(dataLen) {
 		//重新打开
-		err = tsf.openNew()
+		err = tsf.openNew(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	n, err := tsf.file.Write(out)
+	err = tsf.wcache.append(out)
 	if err != nil {
 		common.Logger.Infof("Append %s failed:%s", tsf.name, err.Error())
 		return nil, err
 	}
 
-	ref := &tsdb.TsdbIndex{Block: tsf.block, Offset: tsf.size, Len: int32(dataLen)}
-	tsf.size += int64(n)
+	tsf.cacheLen = tsf.cacheLen + dataLen
+	tsf.flush()
+	ref := &TsIndexData{Block: uint32(tsf.block), Offset: uint64(tsf.size), Len: uint32(dataLen)}
+	tsf.size += dataLen
 	return ref, nil
 
 }
 
-func (tsf *TsdbFile) openNew() error {
-	tsf.Close()
+func (tsf *tsdbFile) flush() {
+	if tsf.cacheLen >= gFlush_Size {
+		tsf.file.Sync()
+		tsf.cacheLen = 0
+	}
+}
+
+func (tsf *tsdbFile) openNew(flag int, perm os.FileMode) error {
+	tsf.close()
 	tsf.block = tsf.block + 1
-	err := tsf.Open()
+	err := tsf.open(flag, perm)
 	if err != nil {
 		common.Logger.Info("reopen failed")
 	}
 	return err
+}
+
+func (iob *tsdbIoBacth) append(dat []byte) error {
+	dlen := len(dat)
+	doff := 0
+	for doff < dlen {
+		rlen := gIo_Size - iob.offset
+		if rlen == 0 {
+			_, err := iob.file.Write(iob.buf)
+			if err != nil {
+				common.Logger.Infof("iobatch append io failed:%s", err.Error())
+				return err
+			}
+			iob.offset = 0
+			continue
+		}
+		if rlen > (dlen - doff) {
+			rlen = dlen - doff
+		}
+		for off := 0; off < rlen; off++ {
+			iob.buf[iob.offset+off] = dat[doff]
+			doff++
+		}
+		iob.offset += rlen
+	}
+	return nil
+}
+
+func (iob *tsdbIoBacth) flush() error {
+	if iob.offset == 0 {
+		return nil
+	}
+	_, err := iob.file.Write(iob.buf[0:iob.offset])
+	if err != nil {
+		common.Logger.Infof("iobatch close io failed:%s", err.Error())
+		return err
+	}
+	iob.offset = 0
+	return nil
 }
 
 // tsdbFullError

@@ -1,62 +1,103 @@
 package infra
 
 import (
-	"bytes"
-	"fmt"
+	"encoding/binary"
+	"errors"
 )
 
+type TsData interface {
+	MarshalBinary() ([]byte, error)
+	UnmarshalBinary(data []byte) error
+}
+
 type TsHeaderData struct {
+	TsData
 	Items   uint32
 	Version uint32
 }
 
 type TsMetaData struct {
+	TsData
 	Start    uint64
 	End      uint64
-	Addr     int64
-	Refblock int32
-	Refitems int32
+	Addr     uint64
+	Refblock uint32
+	Refitems uint32
 }
 
 type TsIndexData struct {
+	TsData
 	Timestamp uint64
-	Offset    int64
-	Block     int32
-	Len       int32
+	Offset    uint64
+	Block     uint32
+	Len       uint32
 }
 
+const gTHD_LEN = 8
+const gTMD_LEN = 32
+const gTID_LEN = 24
+
 func (tsh *TsHeaderData) MarshalBinary() ([]byte, error) {
-	var b bytes.Buffer
-	fmt.Fprintln(&b, tsh.Items, tsh.Version)
-	return b.Bytes(), nil
+	buf := make([]byte, gTHD_LEN)
+	lwd := binary.LittleEndian
+	lwd.PutUint32(buf, tsh.Items)
+	lwd.PutUint32(buf[4:], tsh.Version)
+	return buf, nil
 }
 
 func (tsh *TsHeaderData) UnmarshalBinary(data []byte) error {
-	b := bytes.NewBuffer(data)
-	_, err := fmt.Fscanln(b, &tsh.Items, &tsh.Version)
-	return err
+	if len(data) < gTHD_LEN {
+		return errors.New("out of band")
+	}
+	lwd := binary.LittleEndian
+	tsh.Items = lwd.Uint32(data)
+	tsh.Version = lwd.Uint32(data[4:])
+	return nil
 }
 
 func (tmd *TsMetaData) MarshalBinary() ([]byte, error) {
-	var b bytes.Buffer
-	fmt.Fprintln(&b, tmd.Start, tmd.End, tmd.Addr, tmd.Refblock, tmd.Refitems)
-	return b.Bytes(), nil
+	buf := make([]byte, gTMD_LEN)
+	lwd := binary.LittleEndian
+	lwd.PutUint64(buf, tmd.Start)
+	lwd.PutUint64(buf[8:], tmd.End)
+	lwd.PutUint64(buf[16:], tmd.Addr)
+	lwd.PutUint32(buf[24:], tmd.Refblock)
+	lwd.PutUint32(buf[28:], tmd.Refitems)
+	return buf, nil
 }
 
 func (tmd *TsMetaData) UnmarshalBinary(data []byte) error {
-	b := bytes.NewBuffer(data)
-	_, err := fmt.Fscanln(b, &tmd.Start, &tmd.End, &tmd.Addr, &tmd.Refblock, &tmd.Refitems)
-	return err
+	if len(data) < gTMD_LEN {
+		return errors.New("out of band")
+	}
+
+	lwd := binary.LittleEndian
+	tmd.Start = lwd.Uint64(data)
+	tmd.End = lwd.Uint64(data[8:])
+	tmd.Addr = lwd.Uint64(data[16:])
+	tmd.Refblock = lwd.Uint32(data[24:])
+	tmd.Refitems = lwd.Uint32(data[28:])
+	return nil
 }
 
 func (tsi *TsIndexData) MarshalBinary() ([]byte, error) {
-	var b bytes.Buffer
-	fmt.Fprintln(&b, tsi.Timestamp, tsi.Offset, tsi.Block, tsi.Len)
-	return b.Bytes(), nil
+	buf := make([]byte, gTID_LEN)
+	lwd := binary.LittleEndian
+	lwd.PutUint64(buf, tsi.Timestamp)
+	lwd.PutUint64(buf[8:], tsi.Offset)
+	lwd.PutUint32(buf[16:], tsi.Block)
+	lwd.PutUint32(buf[20:], tsi.Len)
+	return buf, nil
 }
 
 func (tsi *TsIndexData) UnmarshalBinary(data []byte) error {
-	b := bytes.NewBuffer(data)
-	_, err := fmt.Fscanln(b, &tsi.Timestamp, &tsi.Offset, &tsi.Block, &tsi.Len)
-	return err
+	if len(data) < gTID_LEN {
+		return errors.New("out of band")
+	}
+	lwd := binary.LittleEndian
+	tsi.Timestamp = lwd.Uint64(data)
+	tsi.Offset = lwd.Uint64(data[8:])
+	tsi.Block = lwd.Uint32(data[16:])
+	tsi.Len = lwd.Uint32(data[20:])
+	return nil
 }
