@@ -29,7 +29,7 @@ func testMarshal() error {
 	}
 	log.Printf("%+v", omt)
 
-	tmt := &infra.TsMetaData{Start: 1000, End: 2789564123, Addr: 8000000, Refblock: 107896543, Refitems: 1230098743}
+	tmt := &infra.TsMetaData{Start: 1000, End: 2789564123, Addr: 8000000, RefAddr: 10, Refblock: 107896543, Refitems: 1230098743}
 	var network bytes.Buffer
 	enc := gob.NewEncoder(&network)
 	err = enc.Encode(tmt)
@@ -76,12 +76,74 @@ func testWr() {
 		}
 		times += 1
 	}
-	tbl.Close()
+	tsd.CloseAppender(tbl)
 	tsd.Close()
 }
 
-func main() {
-	if testMarshal() == nil {
-		testWr()
+func fbsd(v int, isa []int) {
+	low := 0
+	higth := len(isa)
+	mid := 0
+	for low < higth {
+		mid = (low + higth) / 2
+		if v == isa[mid] {
+			return
+		}
+		if v > isa[mid] {
+			low = mid + 1
+		} else {
+			higth = mid
+		}
 	}
+	if low < len(isa) {
+		log.Printf("v:%d, low:%d, high:%d, mid:%d, v < low=%v", v, low, higth,
+			mid, (v < isa[low]))
+	} else {
+		log.Printf("v:%d is out of range", v)
+	}
+}
+
+func tbsd(v int, itup []tup) {
+	low := 0
+	higth := len(itup)
+	mid := 0
+	for low < higth {
+		mid = (low + higth) / 2
+		if (v >= itup[mid].l) && (v <= itup[mid].r) {
+			log.Printf("v:%d best off:%d", v, mid)
+			return
+		}
+		if v < itup[mid].l {
+			higth = mid
+		} else {
+			low = mid + 1
+		}
+	}
+	log.Printf("v:%d best off:%d, mid:%d, high:%d", v, low, mid, higth)
+}
+
+type tup struct {
+	l int
+	r int
+}
+
+func testBsd() {
+	isa := []int{1, 3, 5, 7, 9, 11, 17, 19}
+	bsa := []int{0, 2, 4, 6, 8, 10, 12, 14, 16, 20}
+	for _, v := range bsa {
+		fbsd(v, isa)
+	}
+	log.Printf("--------------------------------------\n")
+	itup := []tup{{1, 3}, {5, 7}, {9, 11}, {17, 19}}
+	for _, v := range bsa {
+		tbsd(v, itup)
+	}
+}
+
+func main() {
+	testBsd()
+
+	//if testMarshal() == nil {
+	//	testWr()
+	//}
 }

@@ -5,6 +5,12 @@ import (
 	"errors"
 )
 
+var (
+	gTHD_LEN = int64(8)
+	gTMD_LEN = int64(40)
+	gTID_LEN = int64(24)
+)
+
 type TsData interface {
 	MarshalBinary() ([]byte, error)
 	UnmarshalBinary(data []byte) error
@@ -21,6 +27,7 @@ type TsMetaData struct {
 	Start    uint64
 	End      uint64
 	Addr     uint64
+	RefAddr  uint64
 	Refblock uint32
 	Refitems uint32
 }
@@ -33,10 +40,6 @@ type TsIndexData struct {
 	Len       uint32
 }
 
-const gTHD_LEN = 8
-const gTMD_LEN = 32
-const gTID_LEN = 24
-
 func (tsh *TsHeaderData) MarshalBinary() ([]byte, error) {
 	buf := make([]byte, gTHD_LEN)
 	lwd := binary.LittleEndian
@@ -46,7 +49,7 @@ func (tsh *TsHeaderData) MarshalBinary() ([]byte, error) {
 }
 
 func (tsh *TsHeaderData) UnmarshalBinary(data []byte) error {
-	if len(data) < gTHD_LEN {
+	if len(data) < int(gTHD_LEN) {
 		return errors.New("out of band")
 	}
 	lwd := binary.LittleEndian
@@ -61,13 +64,14 @@ func (tmd *TsMetaData) MarshalBinary() ([]byte, error) {
 	lwd.PutUint64(buf, tmd.Start)
 	lwd.PutUint64(buf[8:], tmd.End)
 	lwd.PutUint64(buf[16:], tmd.Addr)
-	lwd.PutUint32(buf[24:], tmd.Refblock)
-	lwd.PutUint32(buf[28:], tmd.Refitems)
+	lwd.PutUint64(buf[24:], tmd.RefAddr)
+	lwd.PutUint32(buf[32:], tmd.Refblock)
+	lwd.PutUint32(buf[36:], tmd.Refitems)
 	return buf, nil
 }
 
 func (tmd *TsMetaData) UnmarshalBinary(data []byte) error {
-	if len(data) < gTMD_LEN {
+	if len(data) < int(gTMD_LEN) {
 		return errors.New("out of band")
 	}
 
@@ -75,8 +79,9 @@ func (tmd *TsMetaData) UnmarshalBinary(data []byte) error {
 	tmd.Start = lwd.Uint64(data)
 	tmd.End = lwd.Uint64(data[8:])
 	tmd.Addr = lwd.Uint64(data[16:])
-	tmd.Refblock = lwd.Uint32(data[24:])
-	tmd.Refitems = lwd.Uint32(data[28:])
+	tmd.RefAddr = lwd.Uint64(data[24:])
+	tmd.Refblock = lwd.Uint32(data[32:])
+	tmd.Refitems = lwd.Uint32(data[36:])
 	return nil
 }
 
@@ -91,7 +96,7 @@ func (tsi *TsIndexData) MarshalBinary() ([]byte, error) {
 }
 
 func (tsi *TsIndexData) UnmarshalBinary(data []byte) error {
-	if len(data) < gTID_LEN {
+	if len(data) < int(gTID_LEN) {
 		return errors.New("out of band")
 	}
 	lwd := binary.LittleEndian
