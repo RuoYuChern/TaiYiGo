@@ -5,9 +5,11 @@ import (
 	"encoding/gob"
 	"log"
 	"os"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
+	"taiyigo.com/facade/tsdb"
 	pb "taiyigo.com/facade/tsdb"
 	"taiyigo.com/infra"
 )
@@ -140,9 +142,42 @@ func testBsd() {
 	}
 }
 
+func testQuery() {
+	conf := "../config/tao.yaml"
+	common.BaseInit(conf)
+	tsd := infra.Gettsdb()
+	tql := tsd.OpenQuery("btc_usd")
+	//var yiyi uint64 = 100000000
+	now := uint64(87654321)
+	for i := 0; i < 2; i++ {
+		timeStart := time.Now()
+		datList, err := tql.GetRange(now, now+3000, 0)
+		diff := (time.Now().UnixMilli() - timeStart.UnixMilli())
+		if err != nil {
+			log.Printf("errors:%s", err)
+			break
+		} else {
+			if datList == nil {
+				log.Printf("overs")
+				break
+			}
+			log.Printf("lens:%d, used:%d", datList.Len(), diff)
+			for f := datList.Front(); f != nil; f = f.Next() {
+				pdat := f.Value.(*tsdb.TsdbData)
+				if pdat.Timestamp < now || pdat.Timestamp > (now+2000) {
+					log.Printf("Time is error:%d", pdat.Timestamp)
+				}
+			}
+		}
+	}
+
+	tsd.CloseQuery(tql)
+	tsd.Close()
+}
+
 func main() {
 	testBsd()
-
+	testQuery()
 	//if testMarshal() == nil {
 	//	testWr()
 	//}

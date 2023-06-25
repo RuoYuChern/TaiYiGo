@@ -319,7 +319,60 @@ func (tsq *TsdbQuery) GetRange(start uint64, end uint64, offset int) (*list.List
 		return nil, err
 	}
 
-	return nil, nil
+	return tsq.loadData(start, end, offset)
+}
+
+func (tsq *TsdbQuery) loadData(start uint64, end uint64, offset int) (*list.List, error) {
+	if tsq.tidx.itemList.Len() == 0 {
+		return nil, nil
+	}
+	datList := list.New()
+	lessNum := 0
+	bigNum := 0
+	total := 0
+	tr := &tsdbBaReader{dir: tsq.dir}
+	tr.init()
+	for tsq.tidx.itemList.Len() > 0 {
+		if total >= gLimit {
+			break
+		}
+		front := tsq.tidx.itemList.Front()
+		tsq.tidx.itemList.Remove(front)
+		pIdx := front.Value.(*TsIndexData)
+		if pIdx.Timestamp < start {
+			lessNum += 1
+			continue
+		}
+		if pIdx.Timestamp > end {
+			bigNum++
+			break
+		}
+		if tsq.tidx.qOffset < offset {
+			tsq.tidx.qOffset++
+			continue
+		}
+		total++
+		if !tr.checkAndPut(pIdx) {
+			err := tr.readAndRest(datList)
+			if err != nil {
+				return nil, err
+			}
+			tr.checkAndPut(pIdx)
+		}
+	}
+	if lessNum > 0 {
+		common.Logger.Infof("alg cost: lessNum %d", lessNum)
+	}
+	if bigNum > 0 {
+		common.Logger.Infof("to tail: bigNum %d", bigNum)
+		tsq.tidx.isEof = true
+		tsq.tidx.itemList = list.New()
+	}
+	err := tr.readAndRest(datList)
+	if err != nil {
+		return nil, err
+	}
+	return datList, nil
 }
 
 func (tsq *TsdbQuery) loadIndex(start uint64, end uint64, offset int) error {
@@ -355,6 +408,12 @@ func (tsq *TsdbQuery) loadIndex(start uint64, end uint64, offset int) error {
 		err = loadIdx(ptmd, tsq.tidx, start, end)
 		tsq.tidx.tsfMap = nil
 		if err != nil {
+			if isTargetError(err, gIsEof) {
+				common.Logger.Infof("loadIndex: %d", tsq.tidx.itemList.Len())
+				tsq.tidx.isEof = true
+				tsq.ttmd.isEof = true
+				break
+			}
 			common.Logger.Infof("loadIdx %s failed:%s", name, err.Error())
 			return err
 		}
@@ -364,7 +423,6 @@ func (tsq *TsdbQuery) loadIndex(start uint64, end uint64, offset int) error {
 			break
 		}
 	}
-
 	return nil
 }
 
@@ -374,10 +432,20 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 		return gIsEmpty
 	}
 
+	// 文件已经读完
+	if tsq.ttmd.isEof {
+		return nil
+	}
+
+	if tsq.ttmd.qOffset >= gLimit {
+		return nil
+	}
+
 	if tsq.ttmd.itemList == nil {
 		// 找到最近位置
 		lastMdOff, err := findTmdBest(tsq.ttmd.tsfMap, start, end)
 		if err != nil {
+			common.Logger.Infof("findTmdBest error:%s", err)
 			return err
 		}
 		if lastMdOff < 0 {
@@ -385,21 +453,13 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 			return gIsEmpty
 		}
 		//设置文件开始读取位置
+		common.Logger.Infof("start: %d, off:%d", start, lastMdOff)
 		if err := tsq.ttmd.tsfMap.lseek(lastMdOff); err != nil {
 			return err
 		}
 		tsq.ttmd.itemList = list.New()
-		tsq.ttmd.isEof = false
 	}
 
-	if tsq.ttmd.qOffset >= gLimit {
-		return nil
-	}
-
-	// 文件已经读完
-	if tsq.ttmd.isEof {
-		return nil
-	}
 	// 加载目标文件
 	tsdbMen := make([]byte, (gIo_Size/tsq.metaLen)*tsq.metaLen)
 	for tsq.ttmd.qOffset <= (gLimit * 2) {
@@ -428,6 +488,7 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 
 			if ptmd.Start > end {
 				// 设置读完
+				common.Logger.Infof("tmd is over: %d > %d", ptmd.Start, end)
 				tsq.ttmd.isEof = true
 				break
 			}

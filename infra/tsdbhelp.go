@@ -12,6 +12,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
+	"taiyigo.com/facade/tsdb"
 )
 
 var (
@@ -74,6 +75,14 @@ type tsdbCursor struct {
 	tsfMap   *tsdbFMMap
 }
 
+type tsdbBaReader struct {
+	dir     string
+	block   uint32
+	offset  uint64
+	bufLen  uint32
+	idxList *list.List
+}
+
 // private functions
 func newMapper(name string, maxSize int64) *tsdbFMMap {
 	return &tsdbFMMap{maxSize: maxSize, name: name}
@@ -95,10 +104,13 @@ func isError(err error, target error) bool {
 	if err == nil {
 		return false
 	}
-	return !errors.Is(err, target)
+	return !isTargetError(err, target)
 }
 
 func isTargetError(err error, target error) bool {
+	if err == target {
+		return true
+	}
 	return errors.Is(err, target)
 }
 
@@ -276,8 +288,7 @@ func findTmdBest(fsTmd *tsdbFMMap, start uint64, end uint64) (int64, error) {
 	if bestOff == -1 {
 		if low >= oHigh {
 			/**start在大区间之外**/
-			common.Logger.Infof("This is exceptions:start=%d, low:%d, higth:%d, mid:%d",
-				start, low, high, mid)
+			common.Logger.Infof("This is exceptions:start=%d, low:%d, higth:%d, mid:%d", start, low, high, mid)
 			return -1, nil
 		}
 		bestOff = (low * buffSize)
@@ -313,18 +324,20 @@ func loadIdx(ptmd *TsMetaData, cur *tsdbCursor, start uint64, end uint64) error 
 		}
 	}
 	items := (offset / int(gTID_LEN))
-	common.Logger.Infof("Block %d find %d begin %d of %d", ptmd.Refblock, start, items, ptmd.Refitems)
+	common.Logger.Infof("Block %d find start %d begin %d of %d", ptmd.Refblock, start, items, ptmd.Refitems)
 	itemBuf := make([]byte, gTID_LEN)
 	for items < int(ptmd.Refitems) {
 		items += 1
 		tcopy(itemBuf, idxMen, offset)
+		offset += int(gTID_LEN)
 		pIdx := &TsIndexData{}
 		if err := pIdx.UnmarshalBinary(itemBuf); err != nil {
 			common.Logger.Infof("block %d UnmarshalBinary failed:%s", ptmd.Refblock, err.Error())
 			return err
 		}
 		if pIdx.Timestamp > end {
-			break
+			common.Logger.Infof("block %d is eof", ptmd.Refblock)
+			return gIsEof
 		}
 
 		if pIdx.Timestamp >= start && pIdx.Timestamp <= end {
@@ -332,7 +345,6 @@ func loadIdx(ptmd *TsMetaData, cur *tsdbCursor, start uint64, end uint64) error 
 		} else {
 			common.Logger.Infof("This is exceptions: %d < %d, block:%d, offset:%d", pIdx.Timestamp, start, ptmd.Refblock, offset)
 		}
-		offset += int(gTID_LEN)
 
 	}
 	return nil
@@ -431,15 +443,36 @@ func (tsf *tsdbFile) isFull(dataLen int64) bool {
 	return ((dataLen + tsf.size) > tsf.maxSize)
 }
 
-func (tsf *tsdbFile) readAt(offset int64, len int, msg proto.Message) error {
-	dat := make([]byte, len)
+func (tsf *tsdbFile) bReadAt(offset int64, buf []byte, dLen int64) error {
+	if (offset + dLen) > tsf.size {
+		common.Logger.Infof("Read out of bound:%d > %d", (offset + dLen), tsf.size)
+		return errors.New("out of bound")
+	}
+	n, err := tsf.file.ReadAt(buf, offset)
+	if err != nil {
+		common.Logger.Infof("Read %s failed:%s", tsf.name, err.Error())
+		return err
+	}
+	if n != int(dLen) {
+		common.Logger.Infof("Read %s failed:%d != %d", tsf.name, n, dLen)
+		return errors.New("read len error")
+	}
+	return nil
+}
+
+func (tsf *tsdbFile) readAt(offset int64, dLen int64, msg proto.Message) error {
+	if (offset + dLen) > tsf.size {
+		common.Logger.Infof("Read out of bound:%d > %d", (offset + dLen), tsf.size)
+		return errors.New("out of bound")
+	}
+	dat := make([]byte, dLen)
 	n, err := tsf.file.ReadAt(dat, offset)
 	if err != nil {
 		common.Logger.Infof("Read %s failed:%s", tsf.name, err.Error())
 		return err
 	}
-	if n != len {
-		common.Logger.Infof("Read %s failed:%d != %d", tsf.name, n, len)
+	if n != int(dLen) {
+		common.Logger.Infof("Read %s failed:%d != %d", tsf.name, n, dLen)
 		return errors.New("read len error")
 	}
 
@@ -559,7 +592,7 @@ func (tsfm *tsdbFMMap) lseek(offset int64) error {
 func (tsfm *tsdbFMMap) batchRead(buf []byte) (int, error) {
 	n, err := tsfm.file.Read(buf)
 	if err != nil {
-		common.Logger.Infof("read %s failed:%s\n", tsfm.name, err.Error())
+		common.Logger.Infof("read %s failed:%s", tsfm.name, err.Error())
 		return 0, err
 	}
 	if n == 0 {
@@ -569,9 +602,17 @@ func (tsfm *tsdbFMMap) batchRead(buf []byte) (int, error) {
 }
 
 func (tsfm *tsdbFMMap) batchReadAt(offset int64, buf []byte) (int, error) {
+	if offset > tsfm.size {
+		common.Logger.Infof("Read out of bound:%d > %d", offset, tsfm.size)
+		return 0, errors.New("out of bound")
+	}
 	n, err := tsfm.file.ReadAt(buf, offset)
 	if err != nil {
-		common.Logger.Infof("read %s failed:%s\n", tsfm.name, err.Error())
+		if n == (int(tsfm.size - offset)) {
+			common.Logger.Infof("read %s tail:%s", tsfm.name, err.Error())
+			return n, nil
+		}
+		common.Logger.Infof("read %s failed:%s, n:%d", tsfm.name, err.Error(), n)
 		return 0, err
 	}
 	if n == 0 {
@@ -634,4 +675,66 @@ func (tsfm *tsdbFMMap) close() {
 		tsfm.file.Close()
 		tsfm.file = nil
 	}
+}
+
+// tsdbBaReader
+func (tr *tsdbBaReader) checkAndPut(pIdx *TsIndexData) bool {
+	if tr.bufLen > 0 {
+		if (pIdx.Block != tr.block) || (pIdx.Offset != (tr.offset + uint64(tr.bufLen))) {
+			return false
+		}
+		if tr.bufLen+pIdx.Len > uint32(gIo_Size) {
+			return false
+		}
+	}
+	if tr.bufLen == 0 {
+		tr.offset = pIdx.Offset
+		tr.block = pIdx.Block
+	}
+	tr.bufLen += pIdx.Len
+	tr.idxList.PushBack(pIdx)
+	return true
+}
+
+func (tr *tsdbBaReader) init() {
+	tr.bufLen = 0
+	tr.offset = 0
+	tr.idxList = list.New()
+}
+
+func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
+	if tr.bufLen == 0 {
+		return nil
+	}
+	dfs := &tsdbFile{maxSize: gDATA_FILE_SIZE, dir: tr.dir, block: int32(tr.block)}
+	err := dfs.open(os.O_RDONLY, 0755)
+	if err != nil {
+		common.Logger.Infof("open block %d failed:%d", tr.block, err)
+		return err
+	}
+	defer dfs.close()
+	defer tr.init()
+
+	ioBuf := make([]byte, tr.bufLen)
+	err = dfs.bReadAt(int64(tr.offset), ioBuf, int64(tr.bufLen))
+	if err != nil {
+		return err
+	}
+	offset := 0
+	for tr.idxList.Len() > 0 {
+		front := tr.idxList.Front()
+		tr.idxList.Remove(front)
+		pIdx := front.Value.(*TsIndexData)
+		dat := make([]byte, pIdx.Len)
+		tcopy(dat, ioBuf, offset)
+		pDat := &tsdb.TsdbData{}
+		err = proto.Unmarshal(dat, pDat)
+		if err != nil {
+			common.Logger.Infof("Unmarshal %d failed:%d", tr.block, err)
+			return err
+		}
+		itemList.PushBack(pDat)
+	}
+
+	return nil
 }
