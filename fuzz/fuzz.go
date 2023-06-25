@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	pb "taiyigo.com/facade/tsdb"
 	"taiyigo.com/infra"
 )
+
+var gNow = uint64(1000000)
 
 func testMarshal() error {
 	mt := &pb.TsdbMeta{Start: 1, End: 2, Addr: 3, Refblock: 4, Refitems: 5}
@@ -59,7 +62,7 @@ func testWr() {
 	tsd := infra.Gettsdb()
 	tbl := tsd.OpenAppender("btc_usd")
 	data := []byte("Hello world")
-	now := uint64(1000000)
+	now := gNow
 	msg := &pb.TsdbData{Timestamp: now, Data: data}
 	err := tbl.Append(msg)
 	if err != nil {
@@ -142,43 +145,168 @@ func testBsd() {
 	}
 }
 
-func testQuery() {
+func testSingle() {
+	conf := "../config/tao.yaml"
+	common.BaseInit(conf)
+	tsd := infra.Gettsdb()
+	first := 29704768
+	second := 29706150
+	start := int(gNow)
+	rangeNum := 0
+	if first < start {
+		rangeNum = (second - start + 1)
+	} else {
+		rangeNum = (second - first + 1)
+	}
+	tql := tsd.OpenQuery("btc_usd")
+	datList, err := tql.GetRange(uint64(first), uint64(second), 0)
+	if err != nil {
+		log.Printf("get error:%d", err)
+	} else {
+		if rangeNum != datList.Len() {
+			log.Printf("lens:%d is error", datList.Len())
+		}
+		for f := datList.Front(); f != nil; f = f.Next() {
+			pdat := f.Value.(*tsdb.TsdbData)
+			if pdat.Timestamp < uint64(first) || pdat.Timestamp > uint64(second) {
+				log.Printf("Time is error:%d", pdat.Timestamp)
+			}
+		}
+	}
+	tsd.CloseQuery(tql)
+	tsd.Close()
+}
+
+func testGn() {
 	conf := "../config/tao.yaml"
 	common.BaseInit(conf)
 	tsd := infra.Gettsdb()
 	tql := tsd.OpenQuery("btc_usd")
-	//var yiyi uint64 = 100000000
-	now := uint64(87654321)
-	for i := 0; i < 2; i++ {
+	value := uint64(7818828)
+	number := 3219
+	datList, err := tql.GetPointN(value, number)
+	if err != nil {
+		log.Printf("errors:%s", err)
+	} else {
+		log.Printf("Len:%d", datList.Len())
+		for f := datList.Front(); f != nil; f = f.Next() {
+			pdat := f.Value.(*tsdb.TsdbData)
+			diff := int(int64(pdat.Timestamp) - int64(value))
+			if diff >= number {
+				log.Printf("Time is error:%d, diff:%d", pdat.Timestamp, diff)
+			}
+		}
+	}
+	tsd.CloseQuery(tql)
+	tsd.Close()
+}
+
+func testMgn() {
+	conf := "../config/tao.yaml"
+	common.BaseInit(conf)
+	tsd := infra.Gettsdb()
+	var yiyi int64 = 100000000
+	now := int64(gNow)
+	for i := 0; i < 90000; i++ {
+		tql := tsd.OpenQuery("btc_usd")
+		defer tsd.CloseQuery(tql)
+		first := rand.Int63n(yiyi)
+		if first < now {
+			first = now
+		}
+		second := first + int64(rand.Intn(4000)) + 10
+		number := int(second - first)
+		log.Printf("Find Point: %d, number:%d", second, number)
 		timeStart := time.Now()
-		datList, err := tql.GetRange(now, now+3000, 0)
+		datList, err := tql.GetPointN(uint64(second), number)
+		tcost := (time.Now().UnixMilli() - timeStart.UnixMilli())
+		if err != nil {
+			log.Printf("errors:%s", err)
+			break
+		} else {
+			log.Printf("lens:%d, used:%d", datList.Len(), tcost)
+			if datList.Len() != number {
+				log.Printf("lens:%d is error", datList.Len())
+				break
+			}
+			for f := datList.Front(); f != nil; f = f.Next() {
+				pdat := f.Value.(*tsdb.TsdbData)
+				if pdat.Timestamp < uint64(first) || pdat.Timestamp > uint64(second) {
+					log.Printf("Time is error:%d", pdat.Timestamp)
+					break
+				}
+			}
+		}
+	}
+	tsd.Close()
+}
+
+func testQuery() {
+	conf := "../config/tao.yaml"
+	common.BaseInit(conf)
+	tsd := infra.Gettsdb()
+	var yiyi int64 = 100000000
+	now := uint64(1000000)
+	rangeNum := int64(0)
+	for i := 0; i < 90000; i++ {
+		tql := tsd.OpenQuery("btc_usd")
+		defer tsd.CloseQuery(tql)
+
+		first := rand.Int63n(yiyi)
+		second := first + int64(rand.Intn(2000))
+		if first < int64(now) {
+			rangeNum = (second - int64(now) + 1)
+		} else {
+			rangeNum = (second - first + 1)
+		}
+
+		log.Printf("times:%d, find range[%d,%d], num:%d", i, first, second, rangeNum)
+		timeStart := time.Now()
+		datList, err := tql.GetRange(uint64(first), uint64(second), 0)
 		diff := (time.Now().UnixMilli() - timeStart.UnixMilli())
+
 		if err != nil {
 			log.Printf("errors:%s", err)
 			break
 		} else {
 			if datList == nil {
+				if now > uint64(second) {
+					log.Printf("empty")
+					continue
+				}
 				log.Printf("overs")
 				break
 			}
 			log.Printf("lens:%d, used:%d", datList.Len(), diff)
+			if rangeNum != int64(datList.Len()) {
+				log.Printf("lens:%d is error", datList.Len())
+				break
+			}
+
 			for f := datList.Front(); f != nil; f = f.Next() {
 				pdat := f.Value.(*tsdb.TsdbData)
-				if pdat.Timestamp < now || pdat.Timestamp > (now+2000) {
+				if pdat.Timestamp < uint64(first) || pdat.Timestamp > uint64(second) {
 					log.Printf("Time is error:%d", pdat.Timestamp)
 				}
 			}
 		}
 	}
-
-	tsd.CloseQuery(tql)
 	tsd.Close()
 }
 
 func main() {
+	c := 'm'
 	testBsd()
-	testQuery()
-	//if testMarshal() == nil {
-	//	testWr()
-	//}
+	switch c {
+	case 'b':
+		testQuery()
+	case 's':
+		testSingle()
+	case 'w':
+		testWr()
+	case 'g':
+		testGn()
+	case 'm':
+		testMgn()
+	}
 }

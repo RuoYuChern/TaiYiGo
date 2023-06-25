@@ -25,7 +25,7 @@ var (
 	gIo_Size         = int64(2 << 20)
 	gFlush_Size      = int64(200 << 20)
 	gIDX_BLOCK_SIZE  = (uint32)((3 << 20) / gTID_LEN)
-	gLimit           = 2000
+	gLimit           = 5000
 )
 
 type tsdbEfull struct {
@@ -72,7 +72,12 @@ type tsdbCursor struct {
 	qOffset  int
 	isEof    bool
 	itemList *list.List
-	tsfMap   *tsdbFMMap
+}
+
+type tsdbLeftCursor struct {
+	block   uint32
+	offset  int64
+	leftNum int
 }
 
 type tsdbBaReader struct {
@@ -91,6 +96,10 @@ func newMapper(name string, maxSize int64) *tsdbFMMap {
 func newIoBatch(file *os.File) *tsdbIoBacth {
 	iob := &tsdbIoBacth{buf: make([]byte, gIo_Size), offset: 0, file: file}
 	return iob
+}
+
+func newTmd(t uint64, addr uint64, refAddr uint64, refBlock uint32) *TsMetaData {
+	return &TsMetaData{Start: t, End: t + 1, Addr: addr, RefAddr: refAddr, Refblock: refBlock, Refitems: 0}
 }
 
 func tcopy(dst []byte, src []byte, offset int) {
@@ -210,7 +219,6 @@ func bsfindIdx(ioBuf []byte, bufLen int, start uint64) (int, error) {
 	if int64(bufLen)%gTID_LEN != 0 {
 		common.Logger.Infof("bufLen:%d is error", bufLen)
 	}
-
 	itemBuf := make([]byte, gTID_LEN)
 	high := int64(bufLen) / gTID_LEN
 	oHigh := high
@@ -226,6 +234,7 @@ func bsfindIdx(ioBuf []byte, bufLen int, start uint64) (int, error) {
 			return -1, err
 		}
 		if tmd.Timestamp == start {
+			common.Logger.Infof("bsfindIdx: start = %d, offset=%d,key=%d", start, offset, tmd.Timestamp)
 			return int(offset), nil
 		}
 		//在区间外
@@ -239,8 +248,14 @@ func bsfindIdx(ioBuf []byte, bufLen int, start uint64) (int, error) {
 	}
 	if low >= oHigh {
 		common.Logger.Infof("some is unexceptions: low %d >= high %d", low, oHigh)
+		low = oHigh - 1
 	}
-	return int(low * gTID_LEN), nil
+	offset := int(low * gTID_LEN)
+	tcopy(itemBuf, ioBuf, offset)
+	tmd := &TsIndexData{}
+	tmd.UnmarshalBinary(itemBuf)
+	common.Logger.Infof("bsfindIdx: start = %d, offset=%d,key=%d", start, offset, tmd.Timestamp)
+	return offset, nil
 }
 
 // midsearch
@@ -303,12 +318,138 @@ func findTmdBest(fsTmd *tsdbFMMap, start uint64, end uint64) (int64, error) {
 	return (bestOff + int64(off)), nil
 }
 
-func loadIdx(ptmd *TsMetaData, cur *tsdbCursor, start uint64, end uint64) error {
+func findIdxOff(dir string, ptmd *TsMetaData, value uint64) (int64, error) {
+	common.Logger.Infof("findIdxOff value=%d at block %d offset = %d", value, ptmd.Refblock, ptmd.RefAddr)
+	if value == ptmd.Start {
+		return 0, nil
+	}
 	bufSize := ptmd.Refitems * uint32(gTID_LEN)
 	idxMen := make([]byte, bufSize)
-	n, err := cur.tsfMap.batchReadAt(int64(ptmd.RefAddr), idxMen)
+	name := fmt.Sprintf(gIDX_FILE_TPL, dir, ptmd.Refblock)
+	tsfm := newMapper(name, gINDEX_FILE_SIZE)
+	defer tsfm.close()
+	if err := tsfm.open(os.O_RDONLY, 0755); err != nil {
+		common.Logger.Infof("open %s failed:%s", name, err)
+		return 0, err
+	}
+	n, err := tsfm.batchReadAt(int64(ptmd.RefAddr), idxMen)
 	if err != nil {
-		common.Logger.Infof("read block %d at %d failed:%s", ptmd.Refblock, ptmd.RefAddr, err.Error())
+		common.Logger.Infof("read block %d offset = %d failed:%s", ptmd.Refblock, ptmd.RefAddr, err.Error())
+		return 0, err
+	}
+	if n != int(bufSize) {
+		common.Logger.Infof("read block %d at %d size error:%d != %d", ptmd.Refblock, ptmd.RefAddr, n, bufSize)
+		return 0, errors.New("size error")
+	}
+	offset, err := bsfindIdx(idxMen, n, value)
+	if err != nil {
+		common.Logger.Infof("bsfindIdx block %d error:%s", ptmd.Refblock, err.Error())
+		return 0, err
+	}
+
+	return int64(offset), nil
+}
+
+func findLeft(dir string, offset int64, num int, ptmd *TsMetaData) (*tsdbLeftCursor, error) {
+	totalOffset := int64(num-1) * gTID_LEN
+	leftCur := &tsdbLeftCursor{leftNum: num}
+	valueOffset := int64(ptmd.RefAddr) + offset
+	if totalOffset <= valueOffset {
+		leftCur.block = ptmd.Refblock
+		//通过相对便宜位置计算绝对位置
+		leftCur.offset = (valueOffset - totalOffset)
+		common.Logger.Infof("From [%d,%d] To [%d,%d]", leftCur.block, leftCur.offset, ptmd.Refblock, valueOffset)
+		return leftCur, nil
+	}
+	totalOffset -= valueOffset
+	leftBlock := ptmd.Refblock
+	for leftBlock > 0 {
+		name := fmt.Sprintf(gIDX_FILE_TPL, dir, (leftBlock - 1))
+		tsfm := newMapper(name, gINDEX_FILE_SIZE)
+		defer tsfm.close()
+		if err := tsfm.open(os.O_RDONLY, 0755); err != nil {
+			common.Logger.Infof("open %s failed:%s", name, err)
+			return nil, err
+		}
+		if totalOffset <= tsfm.size {
+			leftCur.block = (leftBlock - 1)
+			leftCur.offset = (tsfm.size - totalOffset)
+			common.Logger.Infof("From [%d,%d] To [%d,%d]", leftCur.block, leftCur.offset, ptmd.Refblock, valueOffset)
+			return leftCur, nil
+		}
+		totalOffset -= tsfm.size
+		leftBlock -= 1
+	}
+	common.Logger.Infof("Start refblock:%d, leftBlock:%d, totalOffset:%d", ptmd.Refblock, leftBlock, totalOffset)
+	return nil, gIsEmpty
+}
+
+func loadNData(dir string, tsfMap *tsdbFMMap, left *tsdbLeftCursor, value uint64, outList *list.List) (int64, error) {
+	bufSize := (gIo_Size / gTID_LEN) * gTID_LEN
+	idxMen := make([]byte, bufSize)
+	itemBuf := make([]byte, gTID_LEN)
+	tr := &tsdbBaReader{dir: dir}
+	tr.init()
+	totalOff := outList.Len()
+	offset := left.offset
+	leftNum := left.leftNum
+	for (offset < tsfMap.size) && (leftNum > 0) && (totalOff < gLimit) {
+		n, err := tsfMap.batchReadAt(offset, idxMen)
+		if err != nil && !isTargetError(err, gIsEof) {
+			common.Logger.Infof("Read error:%s", err)
+			return 0, err
+		}
+		if n == 0 {
+			common.Logger.Infof("Read zero len")
+			break
+		}
+		off := 0
+		for (off < n) && (leftNum > 0) && (totalOff < gLimit) {
+			tcopy(itemBuf, idxMen, off)
+			off += int(gTID_LEN)
+			offset += gTID_LEN
+			totalOff += 1
+			leftNum -= 1
+			pIdx := &TsIndexData{}
+			if err := pIdx.UnmarshalBinary(itemBuf); err != nil {
+				common.Logger.Infof("UnmarshalBinary failed:%s", err.Error())
+				return 0, err
+			}
+			if pIdx.Timestamp > value {
+				common.Logger.Infof("End offset:%d, value:%d", offset, pIdx.Timestamp)
+				leftNum = 0
+				break
+			}
+			if !tr.checkAndPut(pIdx) {
+				err := tr.readAndRest(outList)
+				if err != nil {
+					return 0, err
+				}
+				tr.checkAndPut(pIdx)
+			}
+		}
+	}
+	err := tr.readAndRest(outList)
+	if err != nil {
+		return 0, err
+	}
+	return offset, nil
+}
+
+func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end uint64) error {
+	tsfMap := &tsdbFMMap{maxSize: gINDEX_FILE_SIZE, name: name}
+	err := tsfMap.open(os.O_RDONLY, 0755)
+	if err != nil {
+		common.Logger.Infof("open %s failed:%s", name, err.Error())
+		return err
+	}
+	defer tsfMap.close()
+
+	bufSize := ptmd.Refitems * uint32(gTID_LEN)
+	idxMen := make([]byte, bufSize)
+	n, err := tsfMap.batchReadAt(int64(ptmd.RefAddr), idxMen)
+	if err != nil {
+		common.Logger.Infof("read block %d offset = %d failed:%s", ptmd.Refblock, ptmd.RefAddr, err.Error())
 		return err
 	}
 	if n != int(bufSize) {
@@ -324,7 +465,8 @@ func loadIdx(ptmd *TsMetaData, cur *tsdbCursor, start uint64, end uint64) error 
 		}
 	}
 	items := (offset / int(gTID_LEN))
-	common.Logger.Infof("Block %d find start %d begin %d of %d", ptmd.Refblock, start, items, ptmd.Refitems)
+	common.Logger.Infof("Block %d range:[%d,%d]find start %d begin %d of %d", ptmd.Refblock, ptmd.Start, ptmd.End,
+		start, items, ptmd.Refitems)
 	itemBuf := make([]byte, gTID_LEN)
 	for items < int(ptmd.Refitems) {
 		items += 1
@@ -720,13 +862,14 @@ func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
 	if err != nil {
 		return err
 	}
-	offset := 0
-	for tr.idxList.Len() > 0 {
+	offset := uint32(0)
+	for offset < tr.bufLen {
 		front := tr.idxList.Front()
 		tr.idxList.Remove(front)
 		pIdx := front.Value.(*TsIndexData)
 		dat := make([]byte, pIdx.Len)
-		tcopy(dat, ioBuf, offset)
+		tcopy(dat, ioBuf, int(offset))
+		offset += pIdx.Len
 		pDat := &tsdb.TsdbData{}
 		err = proto.Unmarshal(dat, pDat)
 		if err != nil {

@@ -27,8 +27,10 @@ type TsdbQuery struct {
 	dir     string
 	metaLen int64
 	idxLen  int64
+	tsfMap  *tsdbFMMap
 	ttmd    *tsdbCursor
 	tidx    *tsdbCursor
+	left    *tsdbLeftCursor
 }
 
 type Tsdb struct {
@@ -159,10 +161,9 @@ func (tbl *TsdbAppender) Append(data *tsdb.TsdbData) error {
 }
 
 func (tbl *TsdbAppender) saveIndex(tidx *TsIndexData) error {
-	curMeta := tbl.curMeta
 	if tbl.widx == nil {
 		//打开IDX
-		name := fmt.Sprintf(gIDX_FILE_TPL, tbl.dir, curMeta.Refblock)
+		name := fmt.Sprintf(gIDX_FILE_TPL, tbl.dir, tbl.curMeta.Refblock)
 		tbl.widx = newMapper(name, gINDEX_FILE_SIZE)
 		err := tbl.widx.open(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
@@ -171,6 +172,28 @@ func (tbl *TsdbAppender) saveIndex(tidx *TsIndexData) error {
 		}
 	}
 
+	if err := tbl.checkAndNewIdx(tidx.Timestamp); err != nil {
+		common.Logger.Infof("openNewIdx failed:%s", err.Error())
+		return err
+	}
+
+	if err := tbl.checkBlockIsFull(tidx.Timestamp); err != nil {
+		common.Logger.Infof("checkBlockIsFull failed:%s", err.Error())
+		return err
+	}
+
+	err := tbl.widx.append(tidx)
+	if err != nil {
+		common.Logger.Infof("Append idx_%d failed:%s", tbl.curMeta.Refblock, err.Error())
+		return err
+	}
+	tbl.curMeta.End = tidx.Timestamp + 1
+	tbl.curMeta.Refitems = tbl.curMeta.Refitems + 1
+	return nil
+}
+
+func (tbl *TsdbAppender) checkBlockIsFull(timestamp uint64) error {
+	curMeta := tbl.curMeta
 	//判断是否已经写满一块
 	if curMeta.Refitems >= gIDX_BLOCK_SIZE {
 		err := tbl.meta.writeAt(int64(curMeta.Addr), curMeta)
@@ -180,47 +203,40 @@ func (tbl *TsdbAppender) saveIndex(tidx *TsIndexData) error {
 		}
 		addr := curMeta.Addr + uint64(tbl.metaLen)
 		refAddr := curMeta.RefAddr + uint64(tbl.idxLen*int64(curMeta.Refitems))
-		tbl.curMeta = &TsMetaData{Start: tidx.Timestamp, End: tidx.Timestamp + 1, Addr: addr, RefAddr: refAddr, Refblock: curMeta.Refblock, Refitems: 0}
-		curMeta = tbl.curMeta
+		nextBlock := curMeta.Refblock
+		if (refAddr + uint64(tbl.idxLen)) >= uint64(tbl.widx.maxSize) {
+			common.Logger.Infof("this unexceptions: block:%d, refAddr=%d, maxSize=%d", nextBlock, refAddr, tbl.widx.maxSize)
+		} else {
+			tbl.curMeta = newTmd(timestamp, addr, refAddr, nextBlock)
+		}
 	}
+	return nil
+}
 
-	err := tbl.widx.append(tidx)
-	if isError(err, gIsFull) {
-		common.Logger.Infof("Append idx_%d failed:%s", curMeta.Refblock, err.Error())
-		return err
-	}
-
-	// 之前的idx文件已经写满了，换个新的
-	if isTargetError(err, gIsFull) {
+func (tbl *TsdbAppender) checkAndNewIdx(timestamp uint64) error {
+	curMeta := tbl.curMeta
+	//判断当前是否已经满
+	if (tbl.idxLen + tbl.widx.size) >= tbl.widx.maxSize {
 		//将当前保存
 		common.Logger.Infof("%s is full", tbl.widx.name)
-		err = tbl.meta.writeAt(int64(curMeta.Addr), curMeta)
+		err := tbl.meta.writeAt(int64(curMeta.Addr), curMeta)
 		if err != nil {
 			common.Logger.Infof("Save ref, write meta failed:%s", err.Error())
 			return err
 		}
 		// 换新的idx
 		tbl.widx.close()
-		name := fmt.Sprintf(gIDX_FILE_TPL, tbl.dir, curMeta.Refblock+1)
+		nextBlock := curMeta.Refblock + 1
+		name := fmt.Sprintf(gIDX_FILE_TPL, tbl.dir, nextBlock)
 		tbl.widx = newMapper(name, gINDEX_FILE_SIZE)
 		err = tbl.widx.open(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
 			common.Logger.Infof("open %s failed:%s", name, err.Error())
 			return err
 		}
-		//再次写进去
-		err = tbl.widx.append(tidx)
-		if err != nil {
-			common.Logger.Infof("append %s failed:%s", name, err.Error())
-			return err
-		}
-		// 获取新的metaCure
+		//重新初始化
 		addr := curMeta.Addr + uint64(tbl.metaLen)
-		refBlock := curMeta.Refblock + 1
-		tbl.curMeta = &TsMetaData{Start: tidx.Timestamp, End: tidx.Timestamp + 1, Addr: addr, RefAddr: 0, Refblock: refBlock, Refitems: 1}
-	} else {
-		curMeta.End = tidx.Timestamp + 1
-		curMeta.Refitems = curMeta.Refitems + 1
+		tbl.curMeta = newTmd(timestamp, addr, 0, nextBlock)
 	}
 	return nil
 }
@@ -283,16 +299,30 @@ func (tsq *TsdbQuery) open() {
 	tsq.idxLen = int64(gTID_LEN)
 	tsq.ttmd = &tsdbCursor{}
 	tsq.tidx = &tsdbCursor{}
+	tsq.left = &tsdbLeftCursor{}
 	common.Logger.Infof("metaLen:%d, idxLen:%d", tsq.metaLen, tsq.idxLen)
 }
 
 func (tsq *TsdbQuery) close() {
-	if tsq.tidx != nil && tsq.tidx.tsfMap != nil {
-		tsq.tidx.tsfMap.close()
+	if tsq.tsfMap != nil {
+		tsq.tsfMap.close()
 	}
-	if tsq.ttmd != nil && tsq.ttmd.tsfMap != nil {
-		tsq.ttmd.tsfMap.close()
+}
+
+// 获取当前时间倒推N个点
+func (tsq *TsdbQuery) GetPointN(value uint64, num int) (*list.List, error) {
+
+	err := tsq.openMeta()
+	if err != nil {
+		return nil, err
 	}
+
+	err = tsq.findTidOff(value, num)
+	if err != nil {
+		return nil, err
+	}
+
+	return tsq.loadNData(value, num)
 }
 
 // 获取区间
@@ -320,6 +350,114 @@ func (tsq *TsdbQuery) GetRange(start uint64, end uint64, offset int) (*list.List
 	}
 
 	return tsq.loadData(start, end, offset)
+}
+
+func (tsq *TsdbQuery) findTidOff(value uint64, number int) error {
+	if tsq.ttmd.isEof {
+		return nil
+	}
+	tsq.ttmd.isEof = true
+	lastMdOff, err := findTmdBest(tsq.tsfMap, value, value)
+	if err != nil {
+		common.Logger.Infof("findTmdBest error:%s", err)
+		return err
+	}
+	if lastMdOff < 0 {
+		common.Logger.Infof("Find none such range:[%d,%d)", value, value+1)
+		return gIsEmpty
+	}
+	common.Logger.Infof("start: %d, Find tmd off:%d", value, lastMdOff)
+	if err := tsq.tsfMap.lseek(lastMdOff); err != nil {
+		return err
+	}
+	// 只需读一个
+	tsdbMen := make([]byte, (gIo_Size/tsq.metaLen)*tsq.metaLen)
+	var rightPtmd *TsMetaData
+	end := value
+	for rightPtmd == nil {
+		n, err := tsq.tsfMap.batchRead(tsdbMen)
+		if err != nil {
+			common.Logger.Infof("batchRead failed:%s", err.Error())
+			return err
+		}
+		if n == 0 {
+			break
+		}
+		off := 0
+		itemBuf := make([]byte, gTMD_LEN)
+		for off < n {
+			tcopy(itemBuf, tsdbMen, off)
+			off += int(gTMD_LEN)
+			ptmd := &TsMetaData{}
+			if err := ptmd.UnmarshalBinary(itemBuf); err != nil {
+				common.Logger.Infof("UnmarshalBinary failed:%s", err.Error())
+				return err
+			}
+			if (ptmd.End <= value) || (ptmd.Refitems == 0) {
+				// [) 左闭合右开
+				continue
+			}
+			if end < ptmd.Start {
+				common.Logger.Infof("tmd is over: %d > %d", ptmd.Start, end)
+				break
+			}
+			common.Logger.Infof("start = %d, find ptmd = [%d, %d, Refblock:%d, Refitems:%d]", value, ptmd.Start, ptmd.End,
+				ptmd.Refblock, ptmd.Refitems)
+			rightPtmd = ptmd
+			break
+		}
+	}
+	//找到ptmd,要找到idx的位置
+	if rightPtmd == nil {
+		return gIsEmpty
+	}
+	//找value的相对偏移位置
+	offset, err := findIdxOff(tsq.dir, rightPtmd, value)
+	if err != nil {
+		return err
+	}
+	tsq.left, err = findLeft(tsq.dir, offset, number, rightPtmd)
+	if err != nil {
+		/****/
+		return err
+	}
+	return nil
+}
+
+func (tsq *TsdbQuery) loadNData(value uint64, number int) (*list.List, error) {
+	if tsq.left.leftNum <= 0 {
+		return nil, nil
+	}
+	outList := list.New()
+	readOff := 0
+	for (readOff < gLimit) && (tsq.left.leftNum > 0) {
+		name := fmt.Sprintf(gIDX_FILE_TPL, tsq.dir, tsq.left.block)
+		tsfMap := &tsdbFMMap{maxSize: gINDEX_FILE_SIZE, name: name}
+		err := tsfMap.open(os.O_RDONLY, 0755)
+		if err != nil {
+			common.Logger.Infof("open %s failed:%s", name, err.Error())
+			return nil, err
+		}
+		defer tsfMap.close()
+		offset, err := loadNData(tsq.dir, tsfMap, tsq.left, value, outList)
+		if err != nil {
+			if isTargetError(err, gIsEof) {
+				common.Logger.Infof("Read block=%d, from off=%d end", tsq.left.block, tsq.left.offset)
+				tsq.left.leftNum = 0
+				continue
+			}
+			common.Logger.Infof("Read block=%d,at off=%d, failed:%s", tsq.left.block, tsq.left.offset, err)
+			return nil, err
+		}
+		tsq.left.offset = offset
+		if tsq.left.offset >= tsfMap.size {
+			tsq.left.block = tsq.left.block + 1
+			tsq.left.offset = 0
+		}
+		readOff = outList.Len()
+		tsq.left.leftNum -= readOff
+	}
+	return outList, nil
 }
 
 func (tsq *TsdbQuery) loadData(start uint64, end uint64, offset int) (*list.List, error) {
@@ -393,20 +531,14 @@ func (tsq *TsdbQuery) loadIndex(start uint64, end uint64, offset int) error {
 		tsq.ttmd.itemList.Remove(front)
 		ptmd := front.Value.(*TsMetaData)
 		if (ptmd.End < start) || (ptmd.Start > end) {
-			common.Logger.Infof("Block %d start:%d,end:%d is error:[%d,%d]", ptmd.Refblock,
-				ptmd.Start, ptmd.End, start, end)
+			common.Logger.Infof("Block %d start:%d,end:%d is error:[%d,%d]", ptmd.Refblock, ptmd.Start, ptmd.End, start, end)
+			continue
+		}
+		if ptmd.Refitems == 0 {
 			continue
 		}
 		name := fmt.Sprintf(gIDX_FILE_TPL, tsq.dir, ptmd.Refblock)
-		tsq.tidx.tsfMap = &tsdbFMMap{maxSize: gINDEX_FILE_SIZE, name: name}
-		err := tsq.tidx.tsfMap.open(os.O_RDONLY, 0755)
-		if err != nil {
-			common.Logger.Infof("open %s failed:%s", name, err.Error())
-			return err
-		}
-		defer tsq.tidx.tsfMap.close()
-		err = loadIdx(ptmd, tsq.tidx, start, end)
-		tsq.tidx.tsfMap = nil
+		err := loadIdx(name, ptmd, tsq.tidx, start, end)
 		if err != nil {
 			if isTargetError(err, gIsEof) {
 				common.Logger.Infof("loadIndex: %d", tsq.tidx.itemList.Len())
@@ -427,7 +559,7 @@ func (tsq *TsdbQuery) loadIndex(start uint64, end uint64, offset int) error {
 }
 
 func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
-	items := tsq.ttmd.tsfMap.size / tsq.metaLen
+	items := tsq.tsfMap.size / tsq.metaLen
 	if items == 0 {
 		return gIsEmpty
 	}
@@ -443,7 +575,7 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 
 	if tsq.ttmd.itemList == nil {
 		// 找到最近位置
-		lastMdOff, err := findTmdBest(tsq.ttmd.tsfMap, start, end)
+		lastMdOff, err := findTmdBest(tsq.tsfMap, start, end)
 		if err != nil {
 			common.Logger.Infof("findTmdBest error:%s", err)
 			return err
@@ -453,8 +585,8 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 			return gIsEmpty
 		}
 		//设置文件开始读取位置
-		common.Logger.Infof("start: %d, off:%d", start, lastMdOff)
-		if err := tsq.ttmd.tsfMap.lseek(lastMdOff); err != nil {
+		common.Logger.Infof("start: %d, Find tmd off:%d", start, lastMdOff)
+		if err := tsq.tsfMap.lseek(lastMdOff); err != nil {
 			return err
 		}
 		tsq.ttmd.itemList = list.New()
@@ -466,8 +598,7 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 		if tsq.ttmd.isEof {
 			break
 		}
-
-		n, err := tsq.ttmd.tsfMap.batchRead(tsdbMen)
+		n, err := tsq.tsfMap.batchRead(tsdbMen)
 		if err != nil {
 			common.Logger.Infof("batchRead failed:%s", err.Error())
 			return err
@@ -485,16 +616,17 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 				common.Logger.Infof("UnmarshalBinary failed:%s", err.Error())
 				return err
 			}
-
-			if ptmd.Start > end {
+			if (ptmd.End <= start) || (ptmd.Refitems == 0) {
+				// [) 左闭合右开
+				continue
+			}
+			if end < ptmd.Start {
 				// 设置读完
 				common.Logger.Infof("tmd is over: %d > %d", ptmd.Start, end)
 				tsq.ttmd.isEof = true
 				break
 			}
-			if ptmd.End < start {
-				continue
-			}
+			common.Logger.Infof("start = %d, put ptmd = [%d, %d]", start, ptmd.Start, ptmd.End)
 			tsq.ttmd.itemList.PushBack(ptmd)
 		}
 	}
@@ -502,12 +634,12 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 }
 
 func (tsq *TsdbQuery) openMeta() error {
-	if tsq.ttmd.tsfMap != nil {
+	if tsq.tsfMap != nil {
 		return nil
 	}
 	name := fmt.Sprintf("%s/tsdb/%s/super_meta", common.Conf.Infra.FsDir, tsq.id)
-	tsq.ttmd.tsfMap = &tsdbFMMap{maxSize: gMETA_FILE_SIZE, name: name}
-	err := tsq.ttmd.tsfMap.open(os.O_RDONLY, 0755)
+	tsq.tsfMap = &tsdbFMMap{maxSize: gMETA_FILE_SIZE, name: name}
+	err := tsq.tsfMap.open(os.O_RDONLY, 0755)
 	if err != nil {
 		common.Logger.Infof("open %s failed:%s", name, err.Error())
 		return err
