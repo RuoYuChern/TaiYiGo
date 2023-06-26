@@ -29,14 +29,3 @@ type CnSharesBasic struct {
 	DelistDate string `json:"delist_date"`
 	IsHs       string `json:"is_hs"`
 }
-
-var (
-	gIsCnEmpty = CnEmptyError{}
-)
-
-type CnEmptyError struct {
-}
-
-func (ee CnEmptyError) Error() string {
-	return "CnEmptyError"
-}

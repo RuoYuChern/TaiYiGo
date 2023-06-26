@@ -28,21 +28,6 @@ var (
 	gLimit           = 5000
 )
 
-type tsdbEfull struct {
-}
-
-type tsdbEEmpty struct {
-}
-
-type tsdEEof struct {
-}
-
-var (
-	gIsFull  = tsdbEfull{}
-	gIsEmpty = tsdbEEmpty{}
-	gIsEof   = tsdEEof{}
-)
-
 type tsdbIoBacth struct {
 	buf    []byte
 	offset int
@@ -107,20 +92,6 @@ func tcopy(dst []byte, src []byte, offset int) {
 	for i := 0; i < l; i++ {
 		dst[i] = src[offset+i]
 	}
-}
-
-func isError(err error, target error) bool {
-	if err == nil {
-		return false
-	}
-	return !isTargetError(err, target)
-}
-
-func isTargetError(err error, target error) bool {
-	if err == target {
-		return true
-	}
-	return errors.Is(err, target)
 }
 
 func topTailTmd(ioBuf []byte, itemBuf []byte, rlen int) (*TsMetaData, *TsMetaData) {
@@ -490,20 +461,6 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 
 	}
 	return nil
-}
-
-// tsdbFullError
-func (tsfe tsdbEfull) Error() string {
-	return "Is full"
-}
-
-// tsdbEEmpty
-func (tsfee tsdbEEmpty) Error() string {
-	return "Is Empty"
-}
-
-func (tsdeof tsdEEof) Error() string {
-	return "Eof"
 }
 
 // tsdbIoBacth

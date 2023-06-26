@@ -41,10 +41,21 @@ type Tsdb struct {
 var gtsdb *Tsdb
 var gtsdbOnce sync.Once
 
+type tsdbGuid struct {
+	common.TItemLife
+}
+
+func (tsg *tsdbGuid) Close() {
+	if gtsdb != nil {
+		gtsdb.Close()
+	}
+}
+
 // funcitons
 func Gettsdb() *Tsdb {
 	gtsdbOnce.Do(func() {
 		gtsdb = &Tsdb{tblMap: make(map[string]*TsdbAppender)}
+		common.TaddLife(&tsdbGuid{})
 	})
 	return gtsdb
 }

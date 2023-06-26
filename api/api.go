@@ -123,7 +123,7 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.Use(gin.Recovery())
 	router.GET(fmt.Sprintf("%s/hello", common.Conf.Http.Prefix), hello)
 	router.GET(fmt.Sprintf("%s/auth", common.Conf.Http.Prefix), jwtAuthMiddleware, auth)
-	router.POST(fmt.Sprintf("%s/auth", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
+	router.POST(fmt.Sprintf("%s/load-cn-history", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
 	api.srv = &http.Server{
 		Addr:    fmt.Sprintf(":%d", common.Conf.Http.Port),
 		Handler: router,
