@@ -27,10 +27,15 @@ type infraConf struct {
 	FsDir string `yaml:"fs_dir"`
 }
 
+type quotesConf struct {
+	TuToken string `yaml:"tu.share.token"`
+}
+
 type TaoConf struct {
-	Infra infraConf  `yaml:"infra"`
-	Log   loggerConf `yaml:"logger"`
-	Http  httpConf   `yaml:"http"`
+	Infra  infraConf  `yaml:"infra"`
+	Log    loggerConf `yaml:"logger"`
+	Http   httpConf   `yaml:"http"`
+	Quotes quotesConf `yaml:"quotes"`
 }
 
 var Conf *TaoConf

@@ -182,8 +182,8 @@ func testGn() {
 	common.BaseInit(conf)
 	tsd := infra.Gettsdb()
 	tql := tsd.OpenQuery("btc_usd")
-	value := uint64(7818828)
-	number := 3219
+	value := uint64(87654321)
+	number := 1234567
 	datList, err := tql.GetPointN(value, number)
 	if err != nil {
 		log.Printf("errors:%s", err)
@@ -294,8 +294,32 @@ func testQuery() {
 	tsd.Close()
 }
 
+func testCnShares() {
+	conf := "../config/tao.yaml"
+	common.BaseInit(conf)
+	dlist, err := infra.QueryCnShareDailyRange("000001.SZ", "20180718", "20180718")
+	if err != nil {
+		log.Printf("It is error:%s", err)
+	} else {
+		log.Printf("len:%d", len(dlist))
+		for _, v := range dlist {
+			log.Printf("%+v", v)
+		}
+	}
+
+	out, err := infra.QueryCnShareBasic("", "L")
+	if err != nil {
+		log.Printf("It is error:%s", err)
+	} else {
+		log.Printf("len:%d", out.Len())
+		front := out.Front().Value.(*infra.CnSharesBasic)
+		log.Printf("%+v", front)
+	}
+
+}
+
 func main() {
-	c := 'm'
+	c := 'A'
 	testBsd()
 	switch c {
 	case 'b':
@@ -308,5 +332,7 @@ func main() {
 		testGn()
 	case 'm':
 		testMgn()
+	case 'A':
+		testCnShares()
 	}
 }
