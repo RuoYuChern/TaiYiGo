@@ -57,6 +57,9 @@ func getToken(usename string, opendid string) (string, error) {
 }
 
 func verifyToken(tokenString string, c *gin.Context) error {
+	if tokenString == common.Conf.Http.Token {
+		return nil
+	}
 	token, err := jwt.ParseWithClaims(tokenString, &TaoClaims{}, func(t *jwt.Token) (interface{}, error) {
 		return []byte(common.Conf.Http.Jwt), nil
 	})
@@ -124,6 +127,7 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.GET(fmt.Sprintf("%s/hello", common.Conf.Http.Prefix), hello)
 	router.GET(fmt.Sprintf("%s/auth", common.Conf.Http.Prefix), jwtAuthMiddleware, auth)
 	router.POST(fmt.Sprintf("%s/load-cn-history", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
+	router.POST(fmt.Sprintf("%s/start-cn-stf", common.Conf.Http.Prefix), jwtAuthMiddleware, startCnSTFFlow)
 	api.srv = &http.Server{
 		Addr:    fmt.Sprintf(":%d", common.Conf.Http.Port),
 		Handler: router,

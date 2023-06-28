@@ -5,26 +5,60 @@ package tstock;
 
 message Candle{
     uint64 period = 1;
-    float pcg = 2;
-    float pcgp = 3;
-    float open = 4;  
-    float close = 5; 
-    float high = 6; 
-    float low = 7;   
-    float volume = 8;
-    uint32 count = 9; 
+    double pcg = 2;
+    double pcgp = 3;
+    double open = 4;  
+    double close = 5; 
+    double high = 6; 
+    double low = 7;   
+    double amount = 8;
+    double preClose = 9; 
+    uint32 volume = 10;
 }
 
 message Crypto{
     uint64 period = 1;
-    float pcg = 2;
-    float pcgp = 3;
-    float open = 4;  
-    float close = 5; 
-    float high = 6; 
-    float low = 7;  
-    float weight  = 8; 
-    float vol = 9;
-    float quotal = 10;
+    double pcg = 2;
+    double pcgp = 3;
+    double open = 4;  
+    double close = 5; 
+    double high = 6; 
+    double low = 7;  
+    double weight  = 8; 
+    double vol = 9;
+    double quotal = 10;
     uint64 eventTime = 11; 
+}
+
+message CnBasic{
+	string symbol = 1;     
+	string name  = 2;     
+	string area  = 3;     
+	string industry = 4;  
+	string fulName = 5;   
+	string enName  = 6;   
+	string cnName  = 7;    
+	string market  = 8;   
+	string exChange = 9;   
+	string status   = 10;  
+	string listDate = 11;   
+	string delistDate = 12;
+	string isHs = 13;       
+}
+
+message StfInfo{
+    string symbol = 1;  
+    string status = 2;
+    string name = 3;
+    uint64 day = 4;
+}
+
+message CnBasicList{
+    int32 numbers = 1;
+    repeated CnBasic cnBasicList = 2;
+}
+
+message StfList{
+    int32 numbers = 1;
+    repeated StfInfo stfs = 2;
 }

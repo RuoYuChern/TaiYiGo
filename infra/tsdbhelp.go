@@ -45,6 +45,10 @@ type tsdbFile struct {
 	file     *os.File
 }
 
+type tsFile struct {
+	file *os.File
+}
+
 type tsdbFMMap struct {
 	maxSize int64
 	name    string
@@ -650,7 +654,7 @@ func (tsfm *tsdbFMMap) open(flag int, perm os.FileMode) error {
 	if (os.O_APPEND & flag) > 0 {
 		tsfm.wcache = newIoBatch(tsfm.file)
 	}
-	common.Logger.Infof("%s len:%d, cap:%d", tsfm.name, tsfm.size, tsfm.maxSize)
+	common.Logger.Debugf("%s len:%d, cap:%d", tsfm.name, tsfm.size, tsfm.maxSize)
 	return nil
 }
 
@@ -836,5 +840,48 @@ func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
 		itemList.PushBack(pDat)
 	}
 
+	return nil
+}
+
+func (tsf *tsFile) write(name string, msg proto.Message) error {
+	if err := tsf.open(os.O_WRONLY|os.O_CREATE, name); err != nil {
+		return err
+	}
+	defer tsf.file.Close()
+	out, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	tsf.file.Write(out)
+	return nil
+}
+
+func (tsf *tsFile) read(name string, msg proto.Message) error {
+	if err := tsf.open(os.O_RDONLY, name); err != nil {
+		return err
+	}
+	defer tsf.file.Close()
+	info, err := tsf.file.Stat()
+	if err != nil {
+		return err
+	}
+	in := make([]byte, info.Size())
+	_, err = tsf.file.Read(in)
+	if err != nil {
+		return err
+	}
+	err = proto.Unmarshal(in, msg)
+	return err
+}
+
+func (tsf *tsFile) open(flag int, name string) error {
+	dir := fmt.Sprintf("%s/meta", common.Conf.Infra.FsDir)
+	os.MkdirAll(dir, 0755)
+	fname := fmt.Sprintf("%s/%s", dir, name)
+	fout, err := os.OpenFile(fname, flag, 0755)
+	if err != nil {
+		return err
+	}
+	tsf.file = fout
 	return nil
 }

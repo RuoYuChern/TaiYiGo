@@ -10,6 +10,7 @@ import (
 type httpConf struct {
 	Port   int    `yaml:"port"`
 	Prefix string `yaml:"path-prefix"`
+	Token  string `yaml:"token"`
 	Jwt    string `yaml:"jwt"`
 	Avator string `yaml:"avator"`
 }
@@ -31,11 +32,16 @@ type quotesConf struct {
 	TuToken string `yaml:"tu.share.token"`
 }
 
+type brainConf struct {
+	StfPriceCount int `yaml:"stf-price-count"`
+}
+
 type TaoConf struct {
 	Infra  infraConf  `yaml:"infra"`
 	Log    loggerConf `yaml:"logger"`
 	Http   httpConf   `yaml:"http"`
 	Quotes quotesConf `yaml:"quotes"`
+	Brain  brainConf  `yaml:"brain"`
 }
 
 var Conf *TaoConf

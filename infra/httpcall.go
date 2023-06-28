@@ -63,5 +63,9 @@ func doPost(url string, reqBody any, out any) error {
 		return err
 	}
 	err = binding.JSON.BindBody(body, out)
+	if err != nil {
+		common.Logger.Warnf("BindBody err:%s", err.Error())
+		return err
+	}
 	return err
 }

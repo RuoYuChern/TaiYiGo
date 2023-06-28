@@ -43,11 +43,15 @@ func QueryCnShareBasic(exchange string, listStatus string) (*list.List, error) {
 		common.Logger.Infof("CnShareDailyRange failed:%s", err)
 		return nil, err
 	}
-	data := &rsp.Data
-	if len(data.Items) == 0 {
-		return nil, gIsCnEmpty
+	if rsp.Code != 0 {
+		common.Logger.Infof("QueryCnShareBasic failed:%s", rsp.Msg)
+		return nil, errors.New(rsp.Msg)
 	}
+	data := &rsp.Data
 	outList := list.New()
+	if len(data.Items) == 0 {
+		return outList, nil
+	}
 	vo := make(map[string]any)
 	for _, item := range data.Items {
 		for idx, v := range data.Fields {

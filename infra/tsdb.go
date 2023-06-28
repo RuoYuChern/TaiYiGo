@@ -111,7 +111,7 @@ func (tbl *TsdbAppender) open() {
 	// 这里有个坑:数值类型的如果赋值为0,序列化的时候不会被序列化，导致长度为0
 	tbl.metaLen = int64(gTMD_LEN)
 	tbl.idxLen = int64(gTID_LEN)
-	common.Logger.Infof("metaLen:%d, idxLen:%d", tbl.metaLen, tbl.idxLen)
+	common.Logger.Debugf("metaLen:%d, idxLen:%d", tbl.metaLen, tbl.idxLen)
 }
 
 func (tbl *TsdbAppender) close() {

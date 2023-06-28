@@ -1,5 +1,5 @@
 package dto
 
-type CnLoadHistoryCmd struct {
+type CnAdminCmd struct {
 	Opt string `json:"opt"`
 }

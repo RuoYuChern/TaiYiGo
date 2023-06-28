@@ -143,6 +143,13 @@ func testBsd() {
 	for _, v := range bsa {
 		tbsd(v, itup)
 	}
+	dt := "20230627"
+	d, err := time.Parse("20060102", dt)
+	if err != nil {
+		log.Printf("err:%s", err)
+	} else {
+		log.Printf("err:%d", d.Unix())
+	}
 }
 
 func testSingle() {
