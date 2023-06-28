@@ -25,6 +25,11 @@ type loadHistoryActor struct {
 	cmd *dto.CnAdminCmd
 }
 
+type loadCnBasciActor struct {
+	common.Actor
+	cmd *dto.CnAdminCmd
+}
+
 func toCandle(dIt *infra.CnSharesDaily) *tstock.Candle {
 	candle := &tstock.Candle{}
 	period, err := common.ToDay(common.YYYYMMDD, dIt.Day)
@@ -45,6 +50,25 @@ func toCandle(dIt *infra.CnSharesDaily) *tstock.Candle {
 	return candle
 }
 
+func (actor *loadCnBasciActor) Action() {
+	common.Logger.Infof("basic loading ......")
+	if actor.cmd.Opt != "LOAD" {
+		common.Logger.Infof("cmd:%s is error", actor.cmd.Opt)
+		return
+	}
+	cnList, err := infra.QueryCnShareBasic("", "L")
+	if err != nil {
+		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
+		return
+	}
+
+	err = infra.SaveCnBasic(cnList)
+	if err != nil {
+		common.Logger.Infof("SaveCnBasic failed:%s", err)
+	}
+	common.Logger.Infof("basic loading over")
+}
+
 func (actor *loadHistoryActor) Action() {
 	common.Logger.Infof("history loading ......")
 	if actor.cmd.Opt != "LOAD" {
@@ -61,24 +85,21 @@ func (actor *loadHistoryActor) Action() {
 		common.Logger.Infof("do cmd:%s has done", actor.cmd.Opt)
 		return
 	}
-	cnList, err := infra.QueryCnShareBasic("", "L")
+
+	cnList := &tstock.CnBasicList{}
+	err = infra.GetCnBasic(cnList)
 	if err != nil {
-		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
+		common.Logger.Infof("GetCnBasic failed:%s", err)
 		return
 	}
 
-	err = infra.SaveCnBasic(cnList)
-	if err != nil {
-		common.Logger.Infof("SaveCnBasic failed:%s", actor.cmd.Opt, err)
-	}
 	datRang := []yearItems{{"20200101", "20201231"}, {"20210101", "20211231"}, {"20220101", "20221231"}, {"20230101", now}}
 	limter := ratelimit.New(500, ratelimit.Per(time.Minute))
 	tsDb := infra.Gettsdb()
 	cnShareStatus := make(map[string]string)
 	for _, v := range datRang {
 		isError := false
-		for front := cnList.Front(); front != nil; front = front.Next() {
-			cnBasic := front.Value.(*infra.CnSharesBasic)
+		for _, cnBasic := range cnList.CnBasicList {
 			cnShareLastDay, err := infra.GetByKey(infra.CONF_TABLE, cnBasic.Symbol)
 			startDay := v.start
 			if err == nil && cnShareLastDay != "" {
@@ -125,7 +146,7 @@ func (actor *loadHistoryActor) Action() {
 	common.Logger.Infof("history load over")
 }
 
-func loadCnSharesHistory(c *gin.Context) {
+func loadCnBasic(c *gin.Context) {
 	cmd := dto.CnAdminCmd{}
 	if err := c.BindJSON(&cmd); err != nil {
 		common.Logger.Infoln("Can not find args")
@@ -134,6 +155,17 @@ func loadCnSharesHistory(c *gin.Context) {
 	}
 	c.String(http.StatusOK, "Commond submitted")
 	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &loadHistoryActor{cmd: &cmd})
+}
+
+func loadCnSharesHistory(c *gin.Context) {
+	cmd := dto.CnAdminCmd{}
+	if err := c.BindJSON(&cmd); err != nil {
+		common.Logger.Infoln("Can not find args")
+		c.String(http.StatusBadRequest, "Can not find args")
+		return
+	}
+	c.String(http.StatusOK, "Commond submitted")
+	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &loadCnBasciActor{cmd: &cmd})
 }
 
 func startCnSTFFlow(c *gin.Context) {
