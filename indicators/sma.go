@@ -7,8 +7,18 @@ type smaIndicator struct {
 	preSma Decimal
 }
 
+type smaBack struct {
+	ts     *TimeSeries
+	opt    GetValue
+	window int
+}
+
 func NewSimpleMovingAverage(ts *TimeSeries, opt GetValue, window int) Indicator {
 	return smaIndicator{ts: ts, opt: opt, window: window, preSma: ZERO}
+}
+
+func NewSimpleMovingAverage2(ts *TimeSeries, opt GetValue, window int) Indicator {
+	return smaBack{ts: ts, opt: opt, window: window}
 }
 
 func (sma smaIndicator) Calculate(index int) Decimal {
@@ -30,4 +40,18 @@ func (sma smaIndicator) Calculate(index int) Decimal {
 		sma.preSma = sma.preSma.Add(diff.Div(NewFromInt(sma.window)))
 	}
 	return sma.preSma
+}
+
+func (sma smaBack) Calculate(index int) Decimal {
+	if index < (sma.window - 1) {
+		return ZERO
+	}
+
+	sum := ZERO
+	start := index - sma.window + 1
+	for i := start; i <= index; i++ {
+		d := sma.opt(sma.ts.Get(i))
+		sum = sum.Add(d)
+	}
+	return sum.Div(NewFromInt(sma.window))
 }

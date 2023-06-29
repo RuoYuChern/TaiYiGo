@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -442,7 +443,7 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 		}
 	}
 	items := (offset / int(gTID_LEN))
-	common.Logger.Infof("Block %d range:[%d,%d]find start %d begin %d of %d", ptmd.Refblock, ptmd.Start, ptmd.End,
+	common.Logger.Debugf("Block %d range:[%d,%d]find start %d begin %d of %d", ptmd.Refblock, ptmd.Start, ptmd.End,
 		start, items, ptmd.Refitems)
 	itemBuf := make([]byte, gTID_LEN)
 	for items < int(ptmd.Refitems) {
@@ -455,7 +456,7 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 			return err
 		}
 		if pIdx.Timestamp > end {
-			common.Logger.Infof("block %d is eof", ptmd.Refblock)
+			common.Logger.Debugf("block %d is eof", ptmd.Refblock)
 			return gIsEof
 		}
 
@@ -697,7 +698,10 @@ func (tsfm *tsdbFMMap) lseek(offset int64) error {
 func (tsfm *tsdbFMMap) batchRead(buf []byte) (int, error) {
 	n, err := tsfm.file.Read(buf)
 	if err != nil {
-		common.Logger.Infof("read %s failed:%s", tsfm.name, err.Error())
+		if isTargetError(err, io.EOF) {
+			return 0, nil
+		}
+		common.Logger.Infof("read %s n:%d, size:%d, failed:%s", tsfm.name, n, tsfm.size, err.Error())
 		return 0, err
 	}
 	if n == 0 {
@@ -713,8 +717,8 @@ func (tsfm *tsdbFMMap) batchReadAt(offset int64, buf []byte) (int, error) {
 	}
 	n, err := tsfm.file.ReadAt(buf, offset)
 	if err != nil {
-		if n == (int(tsfm.size - offset)) {
-			common.Logger.Infof("read %s tail:%s", tsfm.name, err.Error())
+		if n == (int(tsfm.size-offset)) || (isTargetError(err, io.EOF)) {
+			common.Logger.Debugf("read %s tail:%s", tsfm.name, err.Error())
 			return n, nil
 		}
 		common.Logger.Infof("read %s failed:%s, n:%d", tsfm.name, err.Error(), n)
@@ -820,10 +824,10 @@ func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
 
 	ioBuf := make([]byte, tr.bufLen)
 	err = dfs.bReadAt(int64(tr.offset), ioBuf, int64(tr.bufLen))
-	dfs.close()
-	tr.init()
-
 	if err != nil {
+		common.Logger.Infof("bReadAt failed:%s", err)
+		dfs.close()
+		tr.init()
 		return err
 	}
 	offset := uint32(0)
@@ -842,7 +846,8 @@ func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
 		}
 		itemList.PushBack(pDat)
 	}
-
+	dfs.close()
+	tr.init()
 	return nil
 }
 

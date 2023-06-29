@@ -156,8 +156,8 @@ func testSingle() {
 	conf := "../config/tao.yaml"
 	common.BaseInit(conf)
 	tsd := infra.Gettsdb()
-	first, _ := common.ToDay("20200101", common.YYYYMMDD)
-	second, _ := common.ToDay("20201231", common.YYYYMMDD)
+	first, _ := common.ToDay(common.YYYYMMDD, "20200101")
+	second, _ := common.ToDay(common.YYYYMMDD, "20201231")
 	// start := int(gNow)
 	// rangeNum := 0
 	// if first < start {
@@ -170,6 +170,7 @@ func testSingle() {
 	if err != nil {
 		log.Printf("get error:%s", err)
 	} else {
+		log.Printf("get len:%d", datList.Len())
 		for f := datList.Front(); f != nil; f = f.Next() {
 			pdat := f.Value.(*tsdb.TsdbData)
 			if pdat.Timestamp < uint64(first.UnixMilli()) || pdat.Timestamp > uint64(second.UnixMilli()) {

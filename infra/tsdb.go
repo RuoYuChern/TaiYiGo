@@ -296,8 +296,6 @@ func (tbl *TsdbAppender) getLastMeta() error {
 		common.Logger.Infof("meta read %s failed:%s", name, err.Error())
 		return err
 	}
-	common.Logger.Infof("%s cure meta:%+v", tbl.id, tbl.curMeta)
-
 	return nil
 }
 
@@ -311,7 +309,6 @@ func (tsq *TsdbQuery) open() {
 	tsq.ttmd = &tsdbCursor{}
 	tsq.tidx = &tsdbCursor{}
 	tsq.left = &tsdbLeftCursor{}
-	common.Logger.Infof("metaLen:%d, idxLen:%d", tsq.metaLen, tsq.idxLen)
 }
 
 func (tsq *TsdbQuery) close() {
@@ -506,6 +503,7 @@ func (tsq *TsdbQuery) loadData(start uint64, end uint64, offset int) (*list.List
 		if !tr.checkAndPut(pIdx) {
 			err := tr.readAndRest(datList)
 			if err != nil {
+				common.Logger.Infof("readAndRest failed:%s", err)
 				return nil, err
 			}
 			tr.checkAndPut(pIdx)
@@ -521,6 +519,7 @@ func (tsq *TsdbQuery) loadData(start uint64, end uint64, offset int) (*list.List
 	}
 	err := tr.readAndRest(datList)
 	if err != nil {
+		common.Logger.Infof("readAndRest failed:%s", err)
 		return nil, err
 	}
 	return datList, nil
@@ -554,7 +553,7 @@ func (tsq *TsdbQuery) loadIndex(start uint64, end uint64, offset int) error {
 		err := loadIdx(name, ptmd, tsq.tidx, start, end)
 		if err != nil {
 			if isTargetError(err, gIsEof) {
-				common.Logger.Infof("loadIndex: %d", tsq.tidx.itemList.Len())
+				common.Logger.Debugf("to eof find indexs: %d", tsq.tidx.itemList.Len())
 				tsq.tidx.isEof = true
 				tsq.ttmd.isEof = true
 				break
@@ -568,6 +567,7 @@ func (tsq *TsdbQuery) loadIndex(start uint64, end uint64, offset int) error {
 			break
 		}
 	}
+	common.Logger.Debugf("loadIndex: %d", tsq.tidx.itemList.Len())
 	return nil
 }
 
@@ -598,7 +598,7 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 			return gIsEmpty
 		}
 		//设置文件开始读取位置
-		common.Logger.Infof("start: %d, Find tmd off:%d", start, lastMdOff)
+		common.Logger.Debugf("start: %d, Find tmd off:%d", start, lastMdOff)
 		if err := tsq.tsfMap.lseek(lastMdOff); err != nil {
 			return err
 		}
@@ -639,7 +639,7 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 				tsq.ttmd.isEof = true
 				break
 			}
-			common.Logger.Infof("start = %d, put ptmd = [%d, %d]", start, ptmd.Start, ptmd.End)
+			common.Logger.Debugf("start = %d, put ptmd = [%d, %d]", start, ptmd.Start, ptmd.End)
 			tsq.ttmd.itemList.PushBack(ptmd)
 		}
 	}
