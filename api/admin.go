@@ -154,7 +154,7 @@ func loadCnBasic(c *gin.Context) {
 		return
 	}
 	c.String(http.StatusOK, "Commond submitted")
-	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &loadHistoryActor{cmd: &cmd})
+	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &loadCnBasciActor{cmd: &cmd})
 }
 
 func loadCnSharesHistory(c *gin.Context) {
@@ -165,7 +165,7 @@ func loadCnSharesHistory(c *gin.Context) {
 		return
 	}
 	c.String(http.StatusOK, "Commond submitted")
-	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &loadCnBasciActor{cmd: &cmd})
+	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &loadHistoryActor{cmd: &cmd})
 }
 
 func startCnSTFFlow(c *gin.Context) {
