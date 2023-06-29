@@ -30,7 +30,7 @@ type loadCnBasciActor struct {
 	cmd *dto.CnAdminCmd
 }
 
-func toCandle(dIt *infra.CnSharesDaily) *tstock.Candle {
+func toCandle(dIt *infra.TjDailyInfo) *tstock.Candle {
 	candle := &tstock.Candle{}
 	period, err := common.ToDay(common.YYYYMMDD, dIt.Day)
 	if err != nil {
@@ -56,7 +56,7 @@ func (actor *loadCnBasciActor) Action() {
 		common.Logger.Infof("cmd:%s is error", actor.cmd.Opt)
 		return
 	}
-	cnList, err := infra.QueryCnShareBasic("", "L")
+	cnList, err := infra.GetBasicFromTj()
 	if err != nil {
 		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
 		return
@@ -109,7 +109,7 @@ func (actor *loadHistoryActor) Action() {
 				startDay = cnShareLastDay
 			}
 			limter.Take()
-			daily, err := infra.QueryCnShareDailyRange(cnBasic.Symbol, startDay, v.end)
+			daily, err := infra.GetDailyFromTj(cnBasic.Symbol, startDay, v.end)
 			if err != nil {
 				common.Logger.Warnf("Load symbol:%s, range[%s,%s],failed:%s", cnBasic.Symbol, v.start, v.end, err)
 				isError = true
@@ -119,7 +119,7 @@ func (actor *loadHistoryActor) Action() {
 			tbl := tsDb.OpenAppender(cnBasic.Symbol)
 			defer tsDb.CloseAppender(tbl)
 			for _, dIt := range daily {
-				candle := toCandle(dIt)
+				candle := toCandle(&dIt)
 				if candle == nil {
 					common.Logger.Warnf("Load symbol:%s, range[%s,%s],failed", cnBasic.Symbol, v.start, v.end)
 					isError = true

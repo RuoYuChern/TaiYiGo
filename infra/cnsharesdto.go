@@ -29,3 +29,33 @@ type CnSharesBasic struct {
 	DelistDate string `json:"delist_date"`
 	IsHs       string `json:"is_hs"`
 }
+
+type TjDailyInfo struct {
+	Symbol   string  `json:"symbol"`
+	Day      string  `json:"tradeDate"`
+	Open     float64 `json:"open"`
+	Close    float64 `json:"close"`
+	PreClose float64 `json:"preClose"`
+	High     float64 `json:"high"`
+	Low      float64 `json:"low"`
+	Vol      float64 `json:"vol"`
+	Amount   float64 `json:"amount"`
+	PctChg   float64 `json:"pctChg"`
+	Change   float64 `json:"change"`
+}
+
+type TjCnBasicInfo struct {
+	Symbol     string `json:"symbol"`
+	Name       string `json:"name"`
+	Area       string `json:"area"`
+	Industry   string `json:"industry"`
+	FulName    string `json:"fullname"`
+	EnName     string `json:"enname"`
+	CnName     string `json:"cnspell"`
+	Market     string `json:"market"`
+	ExChange   string `json:"exchange"`
+	Status     string `json:"status"`
+	ListDate   string `json:"listDate"`
+	DelistDate string `json:"delist_date"`
+	IsHs       string `json:"is_hs"`
+}

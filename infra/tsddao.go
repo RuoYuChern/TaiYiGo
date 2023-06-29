@@ -12,7 +12,7 @@ func SaveCnBasic(basics *list.List) error {
 	cnList := &tstock.CnBasicList{Numbers: int32(basics.Len()), CnBasicList: make([]*tstock.CnBasic, basics.Len())}
 	off := 0
 	for front := basics.Front(); front != nil; front = front.Next() {
-		share := front.Value.(*CnSharesBasic)
+		share := front.Value.(*TjCnBasicInfo)
 		cnb := &tstock.CnBasic{}
 		cnb.Symbol = share.Symbol
 		cnb.Name = share.Name

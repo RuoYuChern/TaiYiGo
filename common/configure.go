@@ -30,6 +30,7 @@ type infraConf struct {
 
 type quotesConf struct {
 	TuToken string `yaml:"tu.share.token"`
+	Sault   string `yaml:"taiji.sault"`
 }
 
 type brainConf struct {

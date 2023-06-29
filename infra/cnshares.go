@@ -4,6 +4,9 @@ import (
 	"container/list"
 	"encoding/json"
 	"errors"
+	"math/rand"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin/binding"
 	"taiyigo.com/common"
@@ -28,9 +31,85 @@ type tuDailyRsp struct {
 	Data tuDailyItem `json:"data"`
 }
 
+type tjCnBasePage struct {
+	PageSize int             `json:"pageSize"`
+	Items    []TjCnBasicInfo `json:"items"`
+}
+
+type tjCnBasicRsp struct {
+	Status int          `json:"status"`
+	Msg    string       `json:"msg"`
+	Data   tjCnBasePage `json:"data"`
+}
+
+type tjDailyRange struct {
+	Symbol  string        `json:"tsCode"`
+	DtoList []TjDailyInfo `json:"dtoList"`
+}
+
+type tjDailyRsp struct {
+	Status int          `json:"status"`
+	Msg    string       `json:"msg"`
+	Data   tjDailyRange `json:"data"`
+}
+
 var (
 	tuShareUrl = "http://api.tushare.pro"
+	tjUrl      = "https://www.taiji666.top"
 )
+
+func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyInfo, error) {
+	params := make(map[string]string)
+	headers := make(map[string]string)
+	params["stock"] = tscode
+	params["startDate"] = startDate
+	params["endDate"] = startDate
+	timeStr := strconv.FormatInt(time.Now().Unix(), 10)
+	content := strconv.FormatInt(rand.Int63n(1000000000), 36)
+	headers["X-TJ-TIME"] = timeStr
+	headers["X-TJ-NOISE"] = content
+	headers["X-TJ-SIGNATURE"] = common.MD5Sign(common.Conf.Quotes.Sault, content, timeStr)
+	rsp := tjDailyRsp{}
+	err := doGet(tjUrl, "/api/hq/get-symbol", params, headers, &rsp)
+	if err != nil {
+		common.Logger.Infof("GetBasicFromTj failed: %s", err)
+		return nil, err
+	}
+	return rsp.Data.DtoList, nil
+}
+
+func GetBasicFromTj() (*list.List, error) {
+	params := make(map[string]string)
+	headers := make(map[string]string)
+	pageNum := 0
+	outList := list.New()
+	for {
+		params["pageNum"] = strconv.Itoa(pageNum)
+		timeStr := strconv.FormatInt(time.Now().Unix(), 10)
+		content := strconv.FormatInt(rand.Int63n(1000000000), 36)
+		headers["X-TJ-TIME"] = timeStr
+		headers["X-TJ-NOISE"] = content
+		headers["X-TJ-SIGNATURE"] = common.MD5Sign(common.Conf.Quotes.Sault, content, timeStr)
+		rsp := tjCnBasicRsp{}
+		err := doGet(tjUrl, "/api/hq/get-cn-basic", params, headers, &rsp)
+		if err != nil {
+			common.Logger.Infof("GetBasicFromTj failed: %s", err)
+			return nil, err
+		}
+		if rsp.Status != 200 {
+			common.Logger.Infof("GetBasicFromTj failed: %d, msg:%s", rsp.Status, rsp.Msg)
+			return nil, errors.New(rsp.Msg)
+		}
+		for _, v := range rsp.Data.Items {
+			outList.PushBack(&v)
+		}
+		if len(rsp.Data.Items) < rsp.Data.PageSize {
+			break
+		}
+		pageNum++
+	}
+	return outList, nil
+}
 
 func QueryCnShareBasic(exchange string, listStatus string) (*list.List, error) {
 	params := make(map[string]any)
