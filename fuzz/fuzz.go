@@ -156,26 +156,23 @@ func testSingle() {
 	conf := "../config/tao.yaml"
 	common.BaseInit(conf)
 	tsd := infra.Gettsdb()
-	first := 29704768
-	second := 29706150
-	start := int(gNow)
-	rangeNum := 0
-	if first < start {
-		rangeNum = (second - start + 1)
-	} else {
-		rangeNum = (second - first + 1)
-	}
-	tql := tsd.OpenQuery("btc_usd")
-	datList, err := tql.GetRange(uint64(first), uint64(second), 0)
+	first, _ := common.ToDay("20200101", common.YYYYMMDD)
+	second, _ := common.ToDay("20201231", common.YYYYMMDD)
+	// start := int(gNow)
+	// rangeNum := 0
+	// if first < start {
+	// 	rangeNum = (second - start + 1)
+	// } else {
+	// 	rangeNum = (second - first + 1)
+	// }
+	tql := tsd.OpenQuery("000001.SZ")
+	datList, err := tql.GetRange(uint64(first.UnixMilli()), uint64(second.UnixMilli()), 0)
 	if err != nil {
-		log.Printf("get error:%d", err)
+		log.Printf("get error:%s", err)
 	} else {
-		if rangeNum != datList.Len() {
-			log.Printf("lens:%d is error", datList.Len())
-		}
 		for f := datList.Front(); f != nil; f = f.Next() {
 			pdat := f.Value.(*tsdb.TsdbData)
-			if pdat.Timestamp < uint64(first) || pdat.Timestamp > uint64(second) {
+			if pdat.Timestamp < uint64(first.UnixMilli()) || pdat.Timestamp > uint64(second.UnixMilli()) {
 				log.Printf("Time is error:%d", pdat.Timestamp)
 			}
 		}
@@ -331,7 +328,7 @@ func testCnShares() {
 		log.Printf("%+v", front)
 	}
 
-	dailyList, err := infra.GetDailyFromTj("300474.SZ", "20230629", "20230629")
+	dailyList, err := infra.GetDailyFromTj("002602.SZ", "20200101", "20201231")
 	if err != nil {
 		log.Printf("It is error:%s", err)
 	} else {
@@ -344,7 +341,7 @@ func testCnShares() {
 }
 
 func main() {
-	c := 'A'
+	c := 's'
 	testBsd()
 	switch c {
 	case 'b':

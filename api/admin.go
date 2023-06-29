@@ -99,6 +99,8 @@ func (actor *loadHistoryActor) Action() {
 	cnShareStatus := make(map[string]string)
 	for _, v := range datRang {
 		isError := false
+		common.Logger.Infof("day between [%s, %s] started", v.start, v.end)
+		rangeTotal := 0
 		for _, cnBasic := range cnList.CnBasicList {
 			cnShareLastDay, err := infra.GetByKey(infra.CONF_TABLE, cnBasic.Symbol)
 			startDay := v.start
@@ -116,10 +118,14 @@ func (actor *loadHistoryActor) Action() {
 				break
 			}
 
+			total := len(daily)
+			rangeTotal += total
+			if total == 0 {
+				continue
+			}
 			tbl := tsDb.OpenAppender(cnBasic.Symbol)
-			defer tsDb.CloseAppender(tbl)
-			for _, dIt := range daily {
-				candle := toCandle(&dIt)
+			for dOff := 0; dOff < total; dOff++ {
+				candle := toCandle(&daily[dOff])
 				if candle == nil {
 					common.Logger.Warnf("Load symbol:%s, range[%s,%s],failed", cnBasic.Symbol, v.start, v.end)
 					isError = true
@@ -132,10 +138,17 @@ func (actor *loadHistoryActor) Action() {
 					break
 				}
 				tsData := &tsdb.TsdbData{Timestamp: candle.Period, Data: out}
-				tbl.Append(tsData)
-				cnShareStatus[dIt.Symbol] = dIt.Day
+				err = tbl.Append(tsData)
+				if err != nil {
+					common.Logger.Warnf("Save symbol:%s, range[%s,%s],failed:%s", cnBasic.Symbol, v.start, v.end, err)
+					isError = true
+					break
+				}
+				cnShareStatus[daily[dOff].Symbol] = daily[dOff].Day
 			}
+			tsDb.CloseAppender(tbl)
 		}
+		common.Logger.Infof("day between [%s, %s] over, total:%d", v.start, v.end, rangeTotal)
 		if isError {
 			break
 		}

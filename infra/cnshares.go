@@ -63,7 +63,7 @@ func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyI
 	headers := make(map[string]string)
 	params["stock"] = tscode
 	params["startDate"] = startDate
-	params["endDate"] = startDate
+	params["endDate"] = endDate
 	timeStr := strconv.FormatInt(time.Now().Unix(), 10)
 	content := strconv.FormatInt(rand.Int63n(1000000000), 36)
 	headers["X-TJ-TIME"] = timeStr
@@ -100,8 +100,9 @@ func GetBasicFromTj() (*list.List, error) {
 			common.Logger.Infof("GetBasicFromTj failed: %d, msg:%s", rsp.Status, rsp.Msg)
 			return nil, errors.New(rsp.Msg)
 		}
-		for _, v := range rsp.Data.Items {
-			outList.PushBack(&v)
+		itemLen := len(rsp.Data.Items)
+		for off := 0; off < itemLen; off++ {
+			outList.PushBack(&rsp.Data.Items[off])
 		}
 		if len(rsp.Data.Items) < rsp.Data.PageSize {
 			break
