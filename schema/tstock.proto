@@ -50,7 +50,8 @@ message StfInfo{
     string symbol = 1;  
     string status = 2;
     string name = 3;
-    uint64 day = 4;
+    string opt = 4;
+    uint64 day = 5;
 }
 
 message CnBasicList{
