@@ -341,17 +341,19 @@ func findLeft(dir string, offset int64, num int, ptmd *TsMetaData) (*tsdbLeftCur
 	for leftBlock > 0 {
 		name := fmt.Sprintf(gIDX_FILE_TPL, dir, (leftBlock - 1))
 		tsfm := newMapper(name, gINDEX_FILE_SIZE)
-		defer tsfm.close()
 		if err := tsfm.open(os.O_RDONLY, 0755); err != nil {
 			common.Logger.Infof("open %s failed:%s", name, err)
+			tsfm.close()
 			return nil, err
 		}
 		if totalOffset <= tsfm.size {
 			leftCur.block = (leftBlock - 1)
 			leftCur.offset = (tsfm.size - totalOffset)
 			common.Logger.Infof("From [%d,%d] To [%d,%d]", leftCur.block, leftCur.offset, ptmd.Refblock, valueOffset)
+			tsfm.close()
 			return leftCur, nil
 		}
+		tsfm.close()
 		totalOffset -= tsfm.size
 		leftBlock -= 1
 	}
@@ -815,11 +817,12 @@ func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
 		common.Logger.Infof("open block %d failed:%d", tr.block, err)
 		return err
 	}
-	defer dfs.close()
-	defer tr.init()
 
 	ioBuf := make([]byte, tr.bufLen)
 	err = dfs.bReadAt(int64(tr.offset), ioBuf, int64(tr.bufLen))
+	dfs.close()
+	tr.init()
+
 	if err != nil {
 		return err
 	}

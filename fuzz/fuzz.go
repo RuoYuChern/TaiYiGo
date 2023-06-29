@@ -213,7 +213,6 @@ func testMgn() {
 	now := int64(gNow)
 	for i := 0; i < 90000; i++ {
 		tql := tsd.OpenQuery("btc_usd")
-		defer tsd.CloseQuery(tql)
 		first := rand.Int63n(yiyi)
 		if first < now {
 			first = now
@@ -223,6 +222,7 @@ func testMgn() {
 		log.Printf("Find Point: %d, number:%d", second, number)
 		timeStart := time.Now()
 		datList, err := tql.GetPointN(uint64(second), number)
+		tsd.CloseQuery(tql)
 		tcost := (time.Now().UnixMilli() - timeStart.UnixMilli())
 		if err != nil {
 			log.Printf("errors:%s", err)
@@ -254,8 +254,6 @@ func testQuery() {
 	rangeNum := int64(0)
 	for i := 0; i < 90000; i++ {
 		tql := tsd.OpenQuery("btc_usd")
-		defer tsd.CloseQuery(tql)
-
 		first := rand.Int63n(yiyi)
 		second := first + int64(rand.Intn(2000))
 		if first < int64(now) {
@@ -267,8 +265,8 @@ func testQuery() {
 		log.Printf("times:%d, find range[%d,%d], num:%d", i, first, second, rangeNum)
 		timeStart := time.Now()
 		datList, err := tql.GetRange(uint64(first), uint64(second), 0)
+		tsd.CloseQuery(tql)
 		diff := (time.Now().UnixMilli() - timeStart.UnixMilli())
-
 		if err != nil {
 			log.Printf("errors:%s", err)
 			break

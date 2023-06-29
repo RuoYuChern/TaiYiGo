@@ -446,12 +446,13 @@ func (tsq *TsdbQuery) loadNData(value uint64, number int) (*list.List, error) {
 		tsfMap := &tsdbFMMap{maxSize: gINDEX_FILE_SIZE, name: name}
 		err := tsfMap.open(os.O_RDONLY, 0755)
 		if err != nil {
+			tsfMap.close()
 			common.Logger.Infof("open %s failed:%s", name, err.Error())
 			return nil, err
 		}
-		defer tsfMap.close()
 		offset, err := loadNData(tsq.dir, tsfMap, tsq.left, value, outList)
 		if err != nil {
+			tsfMap.close()
 			if isTargetError(err, gIsEof) {
 				common.Logger.Infof("Read block=%d, from off=%d end", tsq.left.block, tsq.left.offset)
 				tsq.left.leftNum = 0
@@ -467,6 +468,7 @@ func (tsq *TsdbQuery) loadNData(value uint64, number int) (*list.List, error) {
 		}
 		readOff = outList.Len()
 		tsq.left.leftNum -= readOff
+		tsfMap.close()
 	}
 	return outList, nil
 }

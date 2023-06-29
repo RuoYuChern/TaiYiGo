@@ -34,8 +34,8 @@ func (fs *FlowStart) Action() {
 	stfList := tstock.StfList{Numbers: 0, Stfs: make([]*tstock.StfInfo, 10)}
 	for _, basic := range cnList.GetCnBasicList() {
 		tql := infra.Gettsdb().OpenQuery(basic.Symbol)
-		defer infra.Gettsdb().CloseQuery(tql)
 		out, err := tql.GetPointN(uint64(dayTime.UnixMilli()), common.Conf.Brain.StfPriceCount)
+		infra.Gettsdb().CloseQuery(tql)
 		if err != nil {
 			common.Logger.Warnf("%s GetPointN failed:%s", basic.Symbol, err)
 			break
