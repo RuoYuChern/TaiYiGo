@@ -12,6 +12,8 @@ import (
 	"taiyigo.com/common"
 	"taiyigo.com/facade/tsdb"
 	pb "taiyigo.com/facade/tsdb"
+	"taiyigo.com/facade/tstock"
+	"taiyigo.com/indicators"
 	"taiyigo.com/infra"
 )
 
@@ -108,6 +110,11 @@ func fbsd(v int, isa []int) {
 	}
 }
 
+type tup struct {
+	l int
+	r int
+}
+
 func tbsd(v int, itup []tup) {
 	low := 0
 	higth := len(itup)
@@ -127,32 +134,37 @@ func tbsd(v int, itup []tup) {
 	log.Printf("v:%d best off:%d, mid:%d, high:%d", v, low, mid, higth)
 }
 
-type tup struct {
-	l int
-	r int
-}
-
 func testBsd() {
-	isa := []int{1, 3, 5, 7, 9, 11, 17, 19}
-	bsa := []int{0, 2, 4, 6, 8, 10, 12, 14, 16, 20}
-	for _, v := range bsa {
-		fbsd(v, isa)
+	candles := make([]*tstock.Candle, 7)
+	candles[0] = &tstock.Candle{Open: 3.0}
+	candles[1] = &tstock.Candle{Open: 6.0}
+	candles[2] = &tstock.Candle{Open: 9.0}
+	candles[3] = &tstock.Candle{Open: 11.0}
+	candles[4] = &tstock.Candle{Open: 14.0}
+	candles[5] = &tstock.Candle{Open: 15.0}
+	candles[6] = &tstock.Candle{Open: 37.0}
+	ts := indicators.NewTimeSeries(candles)
+	id := indicators.NewSimpleMovingAverage(ts, indicators.GetOpen, 5)
+	for off := 0; off <= ts.LastIndex(); off++ {
+		log.Printf("Off:%d, sma:%f", off, id.Calculate(off).Float())
 	}
-	log.Printf("--------------------------------------\n")
-	itup := []tup{{1, 3}, {5, 7}, {9, 11}, {17, 19}}
-	for _, v := range bsa {
-		tbsd(v, itup)
-	}
-	dt := "20230627"
-	d, err := time.Parse("20060102", dt)
-	if err != nil {
-		log.Printf("err:%s", err)
-	} else {
-		log.Printf("err:%d", d.Unix())
+	log.Printf("\n")
+	id = indicators.NewSimpleMovingAverage2(ts, indicators.GetOpen, 5)
+	for off := 0; off <= ts.LastIndex(); off++ {
+		log.Printf("Off:%d, sma:%f", off, id.Calculate(off).Float())
 	}
 
-	s, _ := common.GetNextDay("20230629")
-	log.Printf("next day:%s", s)
+	id = indicators.NewEMAIndicator(ts, indicators.GetOpen, 5)
+	log.Printf("\n")
+	for off := 0; off <= ts.LastIndex(); off++ {
+		log.Printf("Off:%d, ema:%f", off, id.Calculate(off).Float())
+	}
+
+	id = indicators.NewEMAIndicator2(ts, indicators.GetOpen, 5)
+	log.Printf("\n")
+	for off := 0; off <= ts.LastIndex(); off++ {
+		log.Printf("Off:%d, ema:%f", off, id.Calculate(off).Float())
+	}
 }
 
 func testSingle() {

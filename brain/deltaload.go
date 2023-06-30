@@ -29,7 +29,7 @@ func (dlc deltaLoadCnActor) Action() {
 		common.Logger.Infof("GetCnBasic failed:%s", err)
 		return
 	}
-	// 时间推前一天
+	// 时间推后一天
 	lastDay, _ = common.GetNextDay(lastDay)
 	common.Logger.Infof("delta loading between (%s, %s]", lastDay, now)
 	cnShareStatus := make(map[string]string)
@@ -40,7 +40,7 @@ func (dlc deltaLoadCnActor) Action() {
 		return
 	}
 	timeUsed := time.Since(timeStart)
-	common.Logger.Infof("delta loading between (%s, %s], total:%d, timeUsed:%d sec", lastDay, now, rangeTotal, timeUsed.Seconds())
+	common.Logger.Infof("delta loading between [%s, %s], total:%d, timeUsed:%f sec", lastDay, now, rangeTotal, timeUsed.Seconds())
 	if rangeTotal > 0 {
 		if err := infra.BatchSetKeyValue(infra.CONF_TABLE, cnShareStatus); err != nil {
 			common.Logger.Infof("BatchSetKeyValue failed:%s", err)

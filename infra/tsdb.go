@@ -327,13 +327,11 @@ func (tsq *TsdbQuery) GetPointN(value uint64, num int) (*list.List, error) {
 
 	err := tsq.openMeta()
 	if err != nil {
-		common.Logger.Infof("openMeta failed:%s", err)
 		return nil, err
 	}
 
 	err = tsq.findTidOff(value, num)
 	if err != nil {
-		common.Logger.Infof("findTidOff failed:%s", err)
 		return nil, err
 	}
 

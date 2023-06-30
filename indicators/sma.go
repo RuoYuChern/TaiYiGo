@@ -1,6 +1,6 @@
 package indicators
 
-type smaIndicator struct {
+type smaForward struct {
 	ts     *TimeSeries
 	opt    GetValue
 	window int
@@ -14,14 +14,14 @@ type smaBack struct {
 }
 
 func NewSimpleMovingAverage(ts *TimeSeries, opt GetValue, window int) Indicator {
-	return smaIndicator{ts: ts, opt: opt, window: window, preSma: ZERO}
+	return &smaForward{ts: ts, opt: opt, window: window, preSma: ZERO}
 }
 
 func NewSimpleMovingAverage2(ts *TimeSeries, opt GetValue, window int) Indicator {
-	return smaBack{ts: ts, opt: opt, window: window}
+	return &smaBack{ts: ts, opt: opt, window: window}
 }
 
-func (sma smaIndicator) Calculate(index int) Decimal {
+func (sma *smaForward) Calculate(index int) Decimal {
 	if index < (sma.window - 1) {
 		return ZERO
 	}
@@ -42,7 +42,7 @@ func (sma smaIndicator) Calculate(index int) Decimal {
 	return sma.preSma
 }
 
-func (sma smaBack) Calculate(index int) Decimal {
+func (sma *smaBack) Calculate(index int) Decimal {
 	if index < (sma.window - 1) {
 		return ZERO
 	}

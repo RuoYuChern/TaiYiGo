@@ -51,8 +51,7 @@ func (actor *loadHistoryActor) Action() {
 		common.Logger.Infof("cmd:%s is error", actor.cmd.Opt)
 		return
 	}
-	//now := common.GetDay(common.YYYYMMDD, time.Now())
-	now := "20230629"
+	now := common.GetDay(common.YYYYMMDD, time.Now())
 	b, err := infra.CheckAndSet(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY, now)
 	if err != nil {
 		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
@@ -86,7 +85,7 @@ func (actor *loadHistoryActor) Action() {
 	if err := infra.BatchSetKeyValue(infra.CONF_TABLE, cnShareStatus); err != nil {
 		common.Logger.Infof("BatchSetKeyValue failed:%s", err)
 	}
-	common.Logger.Infof("history load over, time Used:%d sec", timeUsed.Seconds())
+	common.Logger.Infof("history load over, time Used:%f sec", timeUsed.Seconds())
 }
 
 func loadCnBasic(c *gin.Context) {
