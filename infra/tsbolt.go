@@ -12,6 +12,7 @@ var blotDb *bolt.DB
 var (
 	CONF_TABLE        = "conf"
 	STF_HISTORY_TABLE = "stf_history"
+	KEY_CNLOADHISTORY = "cn_history_load"
 )
 
 type dbCloseGuid struct {
@@ -41,7 +42,7 @@ func GetByKey(table string, key string) (string, error) {
 	var value string
 	err := blotDb.View(func(tx *bolt.Tx) error {
 		buck := tx.Bucket([]byte(table))
-		if buck != nil {
+		if buck == nil {
 			return gIsBEmpty
 		}
 		bKey := []byte(key)

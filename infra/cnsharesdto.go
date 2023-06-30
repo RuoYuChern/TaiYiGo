@@ -1,5 +1,10 @@
 package infra
 
+import (
+	"taiyigo.com/common"
+	"taiyigo.com/facade/tstock"
+)
+
 type CnSharesDaily struct {
 	Symbol   string  `json:"ts_code"`
 	Day      string  `json:"trade_date"`
@@ -58,4 +63,24 @@ type TjCnBasicInfo struct {
 	ListDate   string `json:"listDate"`
 	DelistDate string `json:"delist_date"`
 	IsHs       string `json:"is_hs"`
+}
+
+func ToCandle(dIt *TjDailyInfo) *tstock.Candle {
+	candle := &tstock.Candle{}
+	period, err := common.ToDay(common.YYYYMMDD, dIt.Day)
+	if err != nil {
+		common.Logger.Infof("ToDay failed:%s", err)
+		return nil
+	}
+	candle.Period = uint64(period.UnixMilli())
+	candle.Pcg = dIt.Change
+	candle.Pcgp = dIt.PctChg
+	candle.Open = dIt.Open
+	candle.Close = dIt.Close
+	candle.High = dIt.High
+	candle.Low = dIt.Low
+	candle.Volume = uint32(dIt.Vol)
+	candle.PreClose = dIt.PreClose
+	candle.Amount = dIt.Amount
+	return candle
 }

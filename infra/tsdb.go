@@ -60,6 +60,10 @@ func Gettsdb() *Tsdb {
 	return gtsdb
 }
 
+func IsEmpty(err error) bool {
+	return (err == gIsEmpty)
+}
+
 // Tsdb
 func (tsdb *Tsdb) OpenAppender(id string) *TsdbAppender {
 	tsdb.mu.Lock()
@@ -140,15 +144,16 @@ func (tbl *TsdbAppender) close() {
 }
 
 func (tbl *TsdbAppender) Append(data *tsdb.TsdbData) error {
+
+	/**目前支持app**/
+	if (tbl.curMeta != nil) && (data.Timestamp < tbl.curMeta.End) {
+		return nil
+	}
+
 	err := tbl.getLastMeta()
 	if isError(err, gIsEmpty) {
 		return err
 	}
-
-	if (tbl.curMeta != nil) && (data.Timestamp < tbl.curMeta.End) {
-		return errors.New("data is old")
-	}
-
 	// 初始化
 	if tbl.curMeta == nil {
 		tbl.curMeta = &TsMetaData{Start: data.Timestamp, End: data.Timestamp + 1, Addr: 0, RefAddr: 0,
@@ -322,11 +327,13 @@ func (tsq *TsdbQuery) GetPointN(value uint64, num int) (*list.List, error) {
 
 	err := tsq.openMeta()
 	if err != nil {
+		common.Logger.Infof("openMeta failed:%s", err)
 		return nil, err
 	}
 
 	err = tsq.findTidOff(value, num)
 	if err != nil {
+		common.Logger.Infof("findTidOff failed:%s", err)
 		return nil, err
 	}
 
@@ -371,10 +378,10 @@ func (tsq *TsdbQuery) findTidOff(value uint64, number int) error {
 		return err
 	}
 	if lastMdOff < 0 {
-		common.Logger.Infof("Find none such range:[%d,%d)", value, value+1)
+		common.Logger.Infof("Id:%s find none such range:[%d,%d)", tsq.id, value, value+1)
 		return gIsEmpty
 	}
-	common.Logger.Infof("start: %d, Find tmd off:%d", value, lastMdOff)
+	common.Logger.Debugf("start: %d, Find tmd off:%d", value, lastMdOff)
 	if err := tsq.tsfMap.lseek(lastMdOff); err != nil {
 		return err
 	}
@@ -409,7 +416,7 @@ func (tsq *TsdbQuery) findTidOff(value uint64, number int) error {
 				common.Logger.Infof("tmd is over: %d > %d", ptmd.Start, end)
 				break
 			}
-			common.Logger.Infof("start = %d, find ptmd = [%d, %d, Refblock:%d, Refitems:%d]", value, ptmd.Start, ptmd.End,
+			common.Logger.Debugf("start = %d, find ptmd = [%d, %d, Refblock:%d, Refitems:%d]", value, ptmd.Start, ptmd.End,
 				ptmd.Refblock, ptmd.Refitems)
 			rightPtmd = ptmd
 			break

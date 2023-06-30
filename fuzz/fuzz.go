@@ -150,14 +150,17 @@ func testBsd() {
 	} else {
 		log.Printf("err:%d", d.Unix())
 	}
+
+	s, _ := common.GetNextDay("20230629")
+	log.Printf("next day:%s", s)
 }
 
 func testSingle() {
 	conf := "../config/tao.yaml"
 	common.BaseInit(conf)
 	tsd := infra.Gettsdb()
-	first, _ := common.ToDay(common.YYYYMMDD, "20200101")
-	second, _ := common.ToDay(common.YYYYMMDD, "20201231")
+	first, _ := common.ToDay(common.YYYYMMDD, "20230627")
+	second, _ := common.ToDay(common.YYYYMMDD, "20230630")
 	// start := int(gNow)
 	// rangeNum := 0
 	// if first < start {
@@ -165,7 +168,7 @@ func testSingle() {
 	// } else {
 	// 	rangeNum = (second - first + 1)
 	// }
-	tql := tsd.OpenQuery("000001.SZ")
+	tql := tsd.OpenQuery("000150.SZ")
 	datList, err := tql.GetRange(uint64(first.UnixMilli()), uint64(second.UnixMilli()), 0)
 	if err != nil {
 		log.Printf("get error:%s", err)

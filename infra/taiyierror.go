@@ -6,6 +6,7 @@ var (
 	gIsCnEmpty = CnEmptyError{}
 	gIsFull    = tsdbEfull{}
 	gIsEmpty   = tsdbEEmpty{}
+	gIsOld     = tsdEOld{}
 	gIsEof     = tsdEEof{}
 	gIsBEmpty  = blotIsEmpty{}
 	gIsBExist  = blotIsExist{}
@@ -34,6 +35,9 @@ type tsdbEEmpty struct {
 type tsdEEof struct {
 }
 
+type tsdEOld struct {
+}
+
 type CnEmptyError struct {
 }
 
@@ -45,16 +49,20 @@ type blotIsExist struct {
 
 // tsdbFullError
 func (tsfe tsdbEfull) Error() string {
-	return "Is full"
+	return "tsdbEfull"
 }
 
 // tsdbEEmpty
 func (tsfee tsdbEEmpty) Error() string {
-	return "Is Empty"
+	return "tsdbEEmpty"
 }
 
 func (tsdeof tsdEEof) Error() string {
-	return "Eof"
+	return "tsdEEof"
+}
+
+func (tsdold tsdEOld) Error() string {
+	return "tsdEOld"
 }
 
 func (ee CnEmptyError) Error() string {
@@ -62,9 +70,9 @@ func (ee CnEmptyError) Error() string {
 }
 
 func (ee blotIsEmpty) Error() string {
-	return "CnEmptyError"
+	return "blotIsEmpty"
 }
 
 func (ee blotIsExist) Error() string {
-	return "CnEmptyError"
+	return "blotIsExist"
 }

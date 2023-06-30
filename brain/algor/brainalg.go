@@ -3,14 +3,15 @@ package algor
 import (
 	"container/list"
 
+	"taiyigo.com/facade/tstock"
 	"taiyigo.com/indicators"
 )
 
 type ThinkAlg interface {
 	Name() string
-	S(dat *list.List) (bool, string)
-	T(dat *list.List) (bool, string)
-	F(dat *list.List) (bool, string)
+	S(dat []*tstock.Candle) (bool, string)
+	T(dat []*tstock.Candle) (bool, string)
+	F(dat []*tstock.Candle) (bool, string)
 }
 
 type Macd struct {
@@ -21,15 +22,16 @@ func (macd *Macd) Name() string {
 	return "mac"
 }
 
-func (macd *Macd) S(dat *list.List) (bool, string) {
-	if dat.Len() < 12 {
+func (macd *Macd) S(dat []*tstock.Candle) (bool, string) {
+	dlen := len(dat)
+	if dlen < 12 {
 		return false, ""
 	}
 
 	ts := indicators.NewTimeSeries(dat)
 	hwd := 10
 	lwd := 8
-	endIdx := dat.Len() - 1
+	endIdx := dlen - 1
 	hSMA := indicators.NewSimpleMovingAverage2(ts, indicators.GetHigh, hwd)
 	lSMA := indicators.NewSimpleMovingAverage2(ts, indicators.GetLow, lwd)
 	hma := hSMA.Calculate(endIdx)
@@ -45,10 +47,10 @@ func (macd *Macd) S(dat *list.List) (bool, string) {
 	}
 	return false, ""
 }
-func (macd *Macd) T(dat *list.List) (bool, string) {
+func (macd *Macd) T(dat []*tstock.Candle) (bool, string) {
 	return false, ""
 }
-func (macd *Macd) F(dat *list.List) (bool, string) {
+func (macd *Macd) F(dat []*tstock.Candle) (bool, string) {
 	return false, ""
 }
 

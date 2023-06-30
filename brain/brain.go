@@ -3,6 +3,7 @@ package brain
 import (
 	"container/list"
 	"sync"
+	"time"
 
 	"taiyigo.com/common"
 )
@@ -23,6 +24,7 @@ var gBrain *Brain
 
 type Brain struct {
 	topic map[string]*Topic
+	bc    chan int
 }
 
 func GetBrain() *Brain {
@@ -48,8 +50,40 @@ func doWork(topic *Topic) {
 	common.Logger.Infof("worker:%s over", topic.name)
 }
 
+func brainWork(br *Brain, c chan int) {
+	isStop := false
+	common.Logger.Infof("brainWork started")
+	sList := getSignalList()
+	for !isStop {
+		select {
+		case res := <-c:
+			common.Logger.Infof("Get signal:%d", res)
+			isStop = true
+		case <-time.After(5 * time.Second):
+			poll(sList)
+		}
+	}
+	common.Logger.Infof("brainWork stopped")
+}
+
+func poll(sList *list.List) {
+	for front := sList.Front(); front != nil; {
+		bs := front.Value.(brainsign)
+		if !bs.isTimeTo() {
+			continue
+		}
+		bs.doSign()
+		front = front.Next()
+		if bs.isOnce() {
+			sList.Remove(front)
+		}
+	}
+}
+
 func (br *Brain) Start() {
 	br.topic = make(map[string]*Topic)
+	br.bc = make(chan int)
+	go brainWork(br, br.bc)
 	topicList := []string{TOPIC_ADMIN, TOPIC_STF}
 	for _, v := range topicList {
 		topic := &Topic{name: v, q: list.New(), isQuit: false, cond: sync.NewCond(&sync.Mutex{})}
@@ -60,6 +94,8 @@ func (br *Brain) Start() {
 }
 
 func (br *Brain) Stop() {
+	br.bc <- 0
+	close(br.bc)
 	for _, v := range br.topic {
 		v.cond.L.Lock()
 		v.cond.Broadcast()

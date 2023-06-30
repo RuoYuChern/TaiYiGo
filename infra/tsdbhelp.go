@@ -210,7 +210,7 @@ func bsfindIdx(ioBuf []byte, bufLen int, start uint64) (int, error) {
 			return -1, err
 		}
 		if tmd.Timestamp == start {
-			common.Logger.Infof("bsfindIdx: start = %d, offset=%d,key=%d", start, offset, tmd.Timestamp)
+			common.Logger.Debugf("bsfindIdx: start = %d, offset=%d,key=%d", start, offset, tmd.Timestamp)
 			return int(offset), nil
 		}
 		//在区间外
@@ -230,7 +230,7 @@ func bsfindIdx(ioBuf []byte, bufLen int, start uint64) (int, error) {
 	tcopy(itemBuf, ioBuf, offset)
 	tmd := &TsIndexData{}
 	tmd.UnmarshalBinary(itemBuf)
-	common.Logger.Infof("bsfindIdx: start = %d, offset=%d,key=%d", start, offset, tmd.Timestamp)
+	common.Logger.Debugf("bsfindIdx: start = %d, offset=%d,key=%d", start, offset, tmd.Timestamp)
 	return offset, nil
 }
 
@@ -295,7 +295,7 @@ func findTmdBest(fsTmd *tsdbFMMap, start uint64, end uint64) (int64, error) {
 }
 
 func findIdxOff(dir string, ptmd *TsMetaData, value uint64) (int64, error) {
-	common.Logger.Infof("findIdxOff value=%d at block %d offset = %d", value, ptmd.Refblock, ptmd.RefAddr)
+	common.Logger.Debugf("findIdxOff value=%d at block %d offset = %d", value, ptmd.Refblock, ptmd.RefAddr)
 	if value == ptmd.Start {
 		return 0, nil
 	}
@@ -334,7 +334,7 @@ func findLeft(dir string, offset int64, num int, ptmd *TsMetaData) (*tsdbLeftCur
 		leftCur.block = ptmd.Refblock
 		//通过相对便宜位置计算绝对位置
 		leftCur.offset = (valueOffset - totalOffset)
-		common.Logger.Infof("From [%d,%d] To [%d,%d]", leftCur.block, leftCur.offset, ptmd.Refblock, valueOffset)
+		common.Logger.Debugf("From [%d,%d] To [%d,%d]", leftCur.block, leftCur.offset, ptmd.Refblock, valueOffset)
 		return leftCur, nil
 	}
 	totalOffset -= valueOffset
@@ -358,7 +358,7 @@ func findLeft(dir string, offset int64, num int, ptmd *TsMetaData) (*tsdbLeftCur
 		totalOffset -= tsfm.size
 		leftBlock -= 1
 	}
-	common.Logger.Infof("Start refblock:%d, leftBlock:%d, totalOffset:%d", ptmd.Refblock, leftBlock, totalOffset)
+	common.Logger.Debugf("Start refblock:%d, leftBlock:%d, totalOffset:%d", ptmd.Refblock, leftBlock, totalOffset)
 	return nil, gIsEmpty
 }
 

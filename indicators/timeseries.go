@@ -1,7 +1,6 @@
 package indicators
 
 import (
-	"container/list"
 	"fmt"
 
 	"taiyigo.com/facade/tstock"
@@ -25,13 +24,9 @@ func (ts *TimeSeries) AddCandle(candle *tstock.Candle) bool {
 	return false
 }
 
-func NewTimeSeries(candles *list.List) (t *TimeSeries) {
+func NewTimeSeries(candles []*tstock.Candle) (t *TimeSeries) {
 	t = new(TimeSeries)
-	t.Candles = make([]*tstock.Candle, candles.Len())
-	off := 0
-	for front := candles.Front(); front != nil; front = front.Next() {
-		t.Candles[off] = front.Value.(*tstock.Candle)
-	}
+	t.Candles = candles
 	return t
 }
 
