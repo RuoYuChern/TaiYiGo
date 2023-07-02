@@ -22,6 +22,16 @@ func ToDay(f string, tstr string) (time.Time, error) {
 	return t, err
 }
 
+func IsDayBeforN(f string, tstr string, days int) bool {
+	day, err := ToDay(f, tstr)
+	if err != nil {
+		Logger.Infof("%s toDay failed:%s", tstr, err)
+		return true
+	}
+	diff := time.Since(day)
+	return (int(diff.Hours()/24) >= days)
+}
+
 func GetNextDay(tstr string) (string, error) {
 	t, err := ToDay(YYYYMMDD, tstr)
 	if err != nil {
@@ -40,6 +50,12 @@ func MD5Sign(sault string, content string, time string) string {
 	io.WriteString(wr, buff.String())
 	sign := base64.StdEncoding.EncodeToString(wr.Sum(nil))
 	return sign
+}
+
+func TodayIsWeek() bool {
+	t := time.Now()
+	wkd := t.Weekday()
+	return (wkd == time.Sunday) || (wkd == time.Saturday)
 }
 
 func FillteST(name string) bool {

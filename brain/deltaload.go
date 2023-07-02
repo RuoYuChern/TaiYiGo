@@ -23,6 +23,10 @@ func (dlc deltaLoadCnActor) Action() {
 	if now == lastDay {
 		return
 	}
+	if common.TodayIsWeek() {
+		common.Logger.Infof("TodayIsWeek")
+		return
+	}
 	cnList := &tstock.CnBasicList{}
 	err = infra.GetCnBasic(cnList)
 	if err != nil {
@@ -31,7 +35,7 @@ func (dlc deltaLoadCnActor) Action() {
 	}
 	// 时间推后一天
 	lastDay, _ = common.GetNextDay(lastDay)
-	common.Logger.Infof("delta loading between (%s, %s]", lastDay, now)
+	common.Logger.Infof("delta loading between [%s, %s]", lastDay, now)
 	cnShareStatus := make(map[string]string)
 	timeStart := time.Now()
 	rangeTotal, err := LoadSymbolDaily(cnList, lastDay, now, cnShareStatus)

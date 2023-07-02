@@ -63,7 +63,7 @@ func (fs *FlowStart) Action() {
 		}
 		for front := algs.Front(); front != nil; front = front.Next() {
 			think := front.Value.(algor.ThinkAlg)
-			b, o := think.S(candles)
+			b, o := think.TAnalyze(candles)
 			if b {
 				stf := &tstock.StfInfo{Symbol: basic.Symbol, Status: "S", Name: basic.Name, Opt: o, Day: uint64(dayTime.UnixMilli())}
 				stfList.Stfs = append(stfList.Stfs, stf)

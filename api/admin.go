@@ -51,7 +51,8 @@ func (actor *loadHistoryActor) Action() {
 		common.Logger.Infof("cmd:%s is error", actor.cmd.Opt)
 		return
 	}
-	now := common.GetDay(common.YYYYMMDD, time.Now())
+	//now := common.GetDay(common.YYYYMMDD, time.Now())
+	now := "20230630"
 	b, err := infra.CheckAndSet(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY, now)
 	if err != nil {
 		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
@@ -108,6 +109,22 @@ func loadCnSharesHistory(c *gin.Context) {
 	}
 	c.String(http.StatusOK, "Commond submitted")
 	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &loadHistoryActor{cmd: &cmd})
+}
+
+func mergeSTF(c *gin.Context) {
+	cmd := dto.CnAdminCmd{}
+	if err := c.BindJSON(&cmd); err != nil {
+		common.Logger.Infoln("Can not find args")
+		c.String(http.StatusBadRequest, "Can not find args")
+		return
+	}
+	if cmd.Opt != "START" {
+		common.Logger.Infoln("opt is error")
+		c.String(http.StatusBadRequest, "opt is error")
+		return
+	}
+	c.String(http.StatusOK, "Commond submitted")
+	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &brain.MergeSTF{})
 }
 
 func startCnSTFFlow(c *gin.Context) {

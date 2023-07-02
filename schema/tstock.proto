@@ -54,6 +54,15 @@ message StfInfo{
     uint64 day = 5;
 }
 
+message StfRecord{
+    string symbol = 1;  
+    string status = 2;
+    string name = 3;
+    string opt = 4;
+    string lowDay = 5;
+    string highDay = 6;
+}
+
 message CnBasicList{
     int32 numbers = 1;
     repeated CnBasic cnBasicList = 2;
@@ -62,4 +71,10 @@ message CnBasicList{
 message StfList{
     int32 numbers = 1;
     repeated StfInfo stfs = 2;
+}
+
+message StfRecordList{
+    int32 numbers = 1;
+    uint64 day = 2;
+    repeated StfRecord stfs = 3;
 }

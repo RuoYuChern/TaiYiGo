@@ -47,6 +47,18 @@ func GetStfList(status string, day string, msg proto.Message) error {
 	return err
 }
 
+func SaveStfRecord(msg proto.Message) error {
+	tsf := tsFile{}
+	name := fmt.Sprintf("normal_S_stf.dat")
+	return tsf.write(name, msg)
+}
+
+func GetStfRecord(msg proto.Message) error {
+	tsf := tsFile{}
+	name := fmt.Sprintf("normal_S_stf.dat")
+	return tsf.read(name, msg)
+}
+
 func GetCnBasic(cnList *tstock.CnBasicList) error {
 	tsf := tsFile{}
 	err := tsf.read("cnbasic.dat", cnList)
