@@ -8,8 +8,38 @@ import (
 	"taiyigo.com/infra"
 )
 
+type loadActor struct {
+	common.Actor
+}
+
+type loadCnBasic struct {
+	common.Actor
+}
+
 type deltaLoadCnActor struct {
 	common.Actor
+}
+
+func (la loadActor) Action() {
+	var act common.Actor = loadCnBasic{}
+	act.Action()
+	act = deltaLoadCnActor{}
+	act.Action()
+}
+
+func (lcb loadCnBasic) Action() {
+	cnList, err := infra.GetBasicFromTj()
+	if err != nil {
+		common.Logger.Infof("load cnbasic failed:%s", err)
+		return
+	}
+
+	err = infra.SaveCnBasic(cnList)
+	if err != nil {
+		common.Logger.Infof("SaveCnBasic failed:%s", err)
+	}
+	infra.LoadMemData()
+	common.Logger.Infof("basic loading over")
 }
 
 func (dlc deltaLoadCnActor) Action() {

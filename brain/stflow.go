@@ -77,5 +77,6 @@ func (fs *FlowStart) Action() {
 		if err != nil {
 			common.Logger.Infof("Save day %s failed:%s", lastDay, err)
 		}
+		GetBrain().Subscript(TOPIC_ADMIN, &MergeSTF{})
 	}
 }

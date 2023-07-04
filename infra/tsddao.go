@@ -3,10 +3,43 @@ package infra
 import (
 	"container/list"
 	"fmt"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
+	"taiyigo.com/common"
 	"taiyigo.com/facade/tstock"
 )
+
+type memData struct {
+	cnShares        map[string]*tstock.CnBasic
+	cnSharesNameMap map[string]string
+}
+
+var gmemData *memData
+var gmenOnce sync.Once
+
+func LoadMemData() {
+	gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}}
+	cnList := tstock.CnBasicList{}
+	err := GetCnBasic(&cnList)
+	if err != nil {
+		common.Logger.Infof("GetCnBasic failed:%s", err)
+		return
+	}
+	for _, v := range cnList.CnBasicList {
+		gmemData.cnShares[v.Symbol] = v
+		gmemData.cnSharesNameMap[v.Name] = v.Symbol
+	}
+}
+
+func GetSymbolName(symbol string) string {
+	gmenOnce.Do(LoadMemData)
+	n, ok := gmemData.cnShares[symbol]
+	if ok {
+		return n.Name
+	}
+	return ""
+}
 
 func SaveCnBasic(basics *list.List) error {
 	cnList := &tstock.CnBasicList{Numbers: int32(basics.Len()), CnBasicList: make([]*tstock.CnBasic, basics.Len())}

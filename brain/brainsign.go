@@ -30,7 +30,7 @@ func (dls *deltaLoadSign) isTimeTo() bool {
 
 func (dls *deltaLoadSign) doSign() {
 	dls.todayIsDone = true
-	GetBrain().Subscript(TOPIC_ADMIN, &deltaLoadCnActor{})
+	GetBrain().Subscript(TOPIC_ADMIN, &loadActor{})
 }
 
 func getSignalList() *list.List {
