@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
+	"taiyigo.com/facade/tsdb"
 	"taiyigo.com/facade/tstock"
 )
 
@@ -50,6 +51,31 @@ func GetNameSymbol(name string) string {
 	return ""
 }
 
+func GetSymbolNPoint(symbol, date string, n int) ([]*tstock.Candle, error) {
+	lastTime, err := common.ToDay(common.YYYYMMDD, date)
+	if err != nil {
+		return nil, err
+	}
+	tsd := Gettsdb()
+	tql := tsd.OpenQuery(symbol)
+	datList, err := tql.GetPointN(uint64(lastTime.UnixMilli()), n)
+	tsd.CloseQuery(tql)
+	tsd.Close()
+	items := make([]*tstock.Candle, datList.Len())
+	off := 0
+	for front := datList.Front(); front != nil; front = front.Next() {
+		items[off] = &tstock.Candle{}
+		value := front.Value.(*tsdb.TsdbData)
+		err = proto.Unmarshal(value.Data, items[off])
+		if err != nil {
+			common.Logger.Warnf("Unmarshal failed:%s", err)
+			return nil, err
+		}
+		off++
+	}
+	return items, err
+}
+
 func SaveCnBasic(basics *list.List) error {
 	cnList := &tstock.CnBasicList{Numbers: int32(basics.Len()), CnBasicList: make([]*tstock.CnBasic, basics.Len())}
 	off := 0
@@ -91,13 +117,13 @@ func GetStfList(status string, day string, msg proto.Message) error {
 
 func SaveStfRecord(msg proto.Message) error {
 	tsf := tsFile{}
-	name := fmt.Sprintf("normal_S_stf.dat")
+	name := "normal_S_stf.dat"
 	return tsf.write(name, msg)
 }
 
 func GetStfRecord(msg proto.Message) error {
 	tsf := tsFile{}
-	name := fmt.Sprintf("normal_S_stf.dat")
+	name := "normal_S_stf.dat"
 	return tsf.read(name, msg)
 }
 
