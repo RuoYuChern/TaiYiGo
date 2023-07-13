@@ -5,6 +5,8 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"io"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -65,4 +67,14 @@ func FillteST(name string) bool {
 func GetTodayNHour() int {
 	now := time.Now()
 	return now.Hour()
+}
+
+func FFloat(f float64, decimal int) float64 {
+	dd := float64(1)
+	if decimal > 0 {
+		dd = math.Pow10(decimal)
+	}
+	res := strconv.FormatFloat(math.Trunc(f*dd)/dd, 'f', -1, 64)
+	fv, _ := strconv.ParseFloat(res, 64)
+	return fv
 }

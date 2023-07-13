@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 )
 
 var (
@@ -205,6 +206,20 @@ func (d Decimal) Float() float64 {
 
 	f, _ := d.fl.Float64()
 	return f
+}
+
+func (d Decimal) FormatFloat(decimal int) float64 {
+	if d.NaN() {
+		return math.NaN()
+	}
+	f, _ := d.fl.Float64()
+	dd := float64(1)
+	if decimal > 0 {
+		dd = math.Pow10(decimal)
+	}
+	res := strconv.FormatFloat(math.Trunc(f*dd)/dd, 'f', -1, 64)
+	fv, _ := strconv.ParseFloat(res, 64)
+	return fv
 }
 
 // Zero will return true if this Decimal is equal to 0.

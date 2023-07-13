@@ -42,6 +42,10 @@ func (ts *TimeSeries) Get(i int) *tstock.Candle {
 	return ts.Candles[i]
 }
 
+func (ts *TimeSeries) GetN(i int, opt GetValue) Decimal {
+	return opt(ts.Get(i))
+}
+
 func (ts *TimeSeries) LastIndex() int {
 	return len(ts.Candles) - 1
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,24 +23,17 @@ func getSymbolTrend(c *gin.Context) {
 		c.String(http.StatusNotFound, "Not found")
 		return
 	}
-	lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
+	rsp := dto.SymbolTrendResponse{}
+	data, err := calSymbolTrend(symbol)
 	if err != nil {
-		common.Logger.Infof("GetByKey failed: %s", err)
-		c.String(http.StatusNotFound, "Not found")
-		return
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+	} else {
+		rsp.Code = http.StatusOK
+		rsp.Msg = "OK"
+		rsp.Data = data
 	}
-
-	dataList, err := infra.GetSymbolNPoint(symbol, lastDay, 250)
-	if err != nil {
-		common.Logger.Infof("GetSymbolNPoint failed: %s", err)
-		c.String(http.StatusInternalServerError, "Not found")
-		return
-	}
-	if dataList.Len() == 0 {
-		c.String(http.StatusNotFound, "Not found")
-		return
-	}
-	c.String(http.StatusOK, fmt.Sprintf("total:%d", dataList.Len()))
+	c.JSON(http.StatusOK, &rsp)
 }
 
 func getStfRecord(c *gin.Context) {
