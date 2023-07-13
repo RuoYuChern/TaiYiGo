@@ -51,6 +51,7 @@ func (dlc deltaLoadCnActor) Action() {
 		return
 	}
 	if now == lastDay {
+		common.Logger.Infof("delta loading done")
 		return
 	}
 	if common.TodayIsWeek() {
@@ -84,7 +85,7 @@ func (dlc deltaLoadCnActor) Action() {
 			common.Logger.Infof("SetKeyValue failed:%s", err)
 			return
 		}
-		// 处罚分析
+		// 触发分析
 		GetBrain().Subscript(TOPIC_STF, &FlowStart{})
 	}
 	common.Logger.Infof("delta load over")

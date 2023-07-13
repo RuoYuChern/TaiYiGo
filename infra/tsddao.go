@@ -41,6 +41,15 @@ func GetSymbolName(symbol string) string {
 	return ""
 }
 
+func GetNameSymbol(name string) string {
+	gmenOnce.Do(LoadMemData)
+	symbol, ok := gmemData.cnSharesNameMap[name]
+	if ok {
+		return symbol
+	}
+	return ""
+}
+
 func SaveCnBasic(basics *list.List) error {
 	cnList := &tstock.CnBasicList{Numbers: int32(basics.Len()), CnBasicList: make([]*tstock.CnBasic, basics.Len())}
 	off := 0

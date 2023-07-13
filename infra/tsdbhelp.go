@@ -852,7 +852,7 @@ func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
 }
 
 func (tsf *tsFile) write(name string, msg proto.Message) error {
-	if err := tsf.open(os.O_WRONLY|os.O_CREATE, name); err != nil {
+	if err := tsf.open(os.O_CREATE, name); err != nil {
 		return err
 	}
 	defer tsf.file.Close()

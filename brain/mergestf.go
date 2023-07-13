@@ -81,6 +81,9 @@ func (mgs *MergeSTF) Action() {
 		strList.Stfs[off] = v
 		off++
 	}
-	infra.SaveStfRecord(&strList)
+	err = infra.SaveStfRecord(&strList)
+	if err != nil {
+		common.Logger.Warnf("merge stf error:%s", err)
+	}
 	common.Logger.Infof("merge stf over")
 }

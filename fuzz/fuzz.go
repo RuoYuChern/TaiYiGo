@@ -342,7 +342,7 @@ func testCnShares() {
 		log.Printf("%+v", front)
 	}
 
-	dailyList, err := infra.GetDailyFromTj("002602.SZ", "20200101", "20201231")
+	dailyList, err := infra.GetDailyFromTj("002701.SZ", "20230707", "20230712")
 	if err != nil {
 		log.Printf("It is error:%s", err)
 	} else {
@@ -355,7 +355,7 @@ func testCnShares() {
 }
 
 func main() {
-	c := 's'
+	c := 'A'
 	testBsd()
 	switch c {
 	case 'b':
