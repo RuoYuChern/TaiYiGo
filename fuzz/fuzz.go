@@ -354,8 +354,30 @@ func testCnShares() {
 
 }
 
+func testHeap() {
+	lcp := func(f any, s any) int {
+		fv := f.(int)
+		sv := s.(int)
+		return (fv - sv)
+	}
+	lskp := common.NewLp(10, lcp)
+	for off := 0; off <= 100; off++ {
+		lskp.Add(off)
+	}
+
+	log.Printf("hpl:%d\n", lskp.Len())
+	for {
+		v := lskp.Top()
+		if v == nil {
+			break
+		}
+		log.Printf("%d\t", v.(int))
+	}
+	log.Printf("\n")
+}
+
 func main() {
-	c := 'A'
+	c := 'H'
 	testBsd()
 	switch c {
 	case 'b':
@@ -370,5 +392,7 @@ func main() {
 		testMgn()
 	case 'A':
 		testCnShares()
+	case 'H':
+		testHeap()
 	}
 }

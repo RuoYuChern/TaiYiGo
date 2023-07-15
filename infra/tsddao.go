@@ -26,7 +26,7 @@ var gmemData *memData
 var gmenOnce sync.Once
 
 func (dbd *DashBoardDao) Add(dbdv *tstock.DashBoardV1) {
-	month := common.SubString(&dbdv.Day, 0, 4)
+	month := common.SubString(&dbdv.Day, 0, 6)
 	if dbd.dashMon != nil {
 		if strings.Compare(month, dbd.dashMon.Mon) < 0 {
 			return
@@ -49,7 +49,7 @@ func (dbd *DashBoardDao) Save() {
 	}
 	tsf := tsFile{flag: os.O_RDONLY}
 	oldDbd := &tstock.DashBoardMonth{}
-	name := fmt.Sprintf("%s/meta/%s_dbd.dat", common.Conf.Infra.FsDir, dbd.dashMon.Mon)
+	name := fmt.Sprintf("%s_dbd.dat", dbd.dashMon.Mon)
 	err := tsf.read(name, oldDbd)
 	if err == nil {
 		//合并老数据

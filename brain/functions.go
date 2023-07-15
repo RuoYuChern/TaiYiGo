@@ -10,6 +10,7 @@ import (
 	"taiyigo.com/common"
 	"taiyigo.com/facade/tsdb"
 	"taiyigo.com/facade/tstock"
+	"taiyigo.com/indicators"
 	"taiyigo.com/infra"
 )
 
@@ -17,6 +18,7 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 	limter := ratelimit.New(500, ratelimit.Per(time.Minute))
 	tsDb := infra.Gettsdb()
 	rangeTotal := 0
+	ndbc := indicators.NewNDbc()
 	for _, cnBasic := range cnList.CnBasicList {
 		cnShareLastDay, err := infra.GetByKey(infra.CONF_TABLE, cnBasic.Symbol)
 		startDay := lowDay
@@ -60,9 +62,11 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 				tsDb.CloseAppender(tbl)
 				return 0, err
 			}
+			ndbc.Cal(dailyInfo.Day, dailyInfo.Symbol, candle)
 			cnShareStatus[daily[dOff].Symbol] = daily[dOff].Day
 		}
 		tsDb.CloseAppender(tbl)
 	}
+	ndbc.Save()
 	return rangeTotal, nil
 }

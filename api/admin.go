@@ -52,7 +52,7 @@ func (actor *loadHistoryActor) Action() {
 		return
 	}
 	//now := common.GetDay(common.YYYYMMDD, time.Now())
-	now := "20230630"
+	now := "20230714"
 	b, err := infra.CheckAndSet(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY, now)
 	if err != nil {
 		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
