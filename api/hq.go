@@ -36,6 +36,81 @@ func getSymbolTrend(c *gin.Context) {
 	c.JSON(http.StatusOK, &rsp)
 }
 
+func getSymbolPairTrend(c *gin.Context) {
+	first := c.Query("first")
+	second := c.Query("second")
+	if (first == "") || (second == "") {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	fsym := infra.GetNameSymbol(first)
+	ssym := infra.GetNameSymbol(second)
+	if (fsym == "") || (ssym == "") {
+		c.String(http.StatusNotFound, "Not found")
+		return
+	}
+
+	rsp := dto.PaireSResponse{}
+	rsp.Code = http.StatusOK
+	rsp.Msg = "OK"
+	fdata, err := calSymbolTrend(fsym)
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+		c.JSON(http.StatusOK, &rsp)
+		return
+	}
+
+	sdata, err := calSymbolTrend(ssym)
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+		c.JSON(http.StatusOK, &rsp)
+		return
+	}
+
+	//找出时间段相同
+	firstLen := len(fdata)
+	firstOff := firstLen
+	secondLen := len(sdata)
+	secondOff := secondLen
+	for (firstOff > 0) && (secondOff > 0) {
+		if strings.Compare(fdata[firstOff-1].Day, sdata[secondOff-1].Day) != 0 {
+			break
+		}
+		firstOff -= 1
+		secondOff -= 1
+	}
+	if (firstOff >= firstLen) || (secondOff >= secondLen) {
+		rsp.Code = http.StatusNoContent
+		rsp.Msg = err.Error()
+		c.JSON(http.StatusOK, &rsp)
+		return
+	}
+	dataLen := (firstLen - firstOff)
+	rsp.Data = make([]*dto.PairDaily, dataLen)
+	for off := 0; off < dataLen; off++ {
+		fDaily := fdata[firstOff+off]
+		sDaily := sdata[secondOff+off]
+		rsp.Data[off] = &dto.PairDaily{Day: fDaily.Day}
+		rsp.Data[off].FClose = fDaily.Close
+		rsp.Data[off].FVol = fDaily.Vol
+		rsp.Data[off].FMtm = fDaily.Mtm
+		rsp.Data[off].FLSma = fDaily.LSma
+		rsp.Data[off].FSSma = fDaily.SSma
+
+		rsp.Data[off].SClose = sDaily.Close
+		rsp.Data[off].SVol = sDaily.Vol
+		rsp.Data[off].SMtm = sDaily.Mtm
+		rsp.Data[off].SLSma = sDaily.LSma
+		rsp.Data[off].SSSma = sDaily.SSma
+
+	}
+
+	c.JSON(http.StatusOK, &rsp)
+}
+
 func getStfRecord(c *gin.Context) {
 	opt := c.Query("opt")
 	page := c.Query("page")

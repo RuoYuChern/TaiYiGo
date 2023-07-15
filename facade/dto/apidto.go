@@ -17,10 +17,30 @@ type SymbolDaily struct {
 	SSma  float64 `json:"ssma"`
 }
 
+type PairDaily struct {
+	Day    string  `json:"day"`
+	FClose float64 `json:"fClose"`
+	FVol   float64 `json:"fVol"`
+	FMtm   float64 `json:"fMtn"`
+	FLSma  float64 `json:"fLsma"`
+	FSSma  float64 `json:"fSsma"`
+	SClose float64 `json:"sClose"`
+	SVol   float64 `json:"sVol"`
+	SMtm   float64 `json:"sMtn"`
+	SLSma  float64 `json:"sLsma"`
+	SSSma  float64 `json:"sSsma"`
+}
+
 type SymbolTrendResponse struct {
 	Code int            `json:"code"`
 	Msg  string         `json:"msg"`
 	Data []*SymbolDaily `json:"data"`
+}
+
+type PaireSResponse struct {
+	Code int          `json:"code"`
+	Msg  string       `json:"msg"`
+	Data []*PairDaily `json:"data"`
 }
 
 type StfItem struct {

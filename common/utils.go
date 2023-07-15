@@ -78,3 +78,13 @@ func FFloat(f float64, decimal int) float64 {
 	fv, _ := strconv.ParseFloat(res, 64)
 	return fv
 }
+
+func SubString(source *string, start int, end int) string {
+	length := len(*source)
+	if (start == 0) && (end == length) {
+		return *source
+	}
+
+	var r = []rune(*source)
+	return string(r[start:end])
+}

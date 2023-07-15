@@ -748,6 +748,219 @@ func (x *StfRecordList) GetStfs() []*StfRecord {
 	return nil
 }
 
+type NamedValue struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name  string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Value float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (x *NamedValue) Reset() {
+	*x = NamedValue{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_tstock_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NamedValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NamedValue) ProtoMessage() {}
+
+func (x *NamedValue) ProtoReflect() protoreflect.Message {
+	mi := &file_tstock_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NamedValue.ProtoReflect.Descriptor instead.
+func (*NamedValue) Descriptor() ([]byte, []int) {
+	return file_tstock_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *NamedValue) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *NamedValue) GetValue() float64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+type DashBoardV1 struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Day         string        `protobuf:"bytes,1,opt,name=day,proto3" json:"day,omitempty"`
+	Top20Vol    []*NamedValue `protobuf:"bytes,2,rep,name=top20Vol,proto3" json:"top20Vol,omitempty"`
+	UpLimit     []string      `protobuf:"bytes,3,rep,name=upLimit,proto3" json:"upLimit,omitempty"`
+	DownLimit   []string      `protobuf:"bytes,4,rep,name=downLimit,proto3" json:"downLimit,omitempty"`
+	TotalVol    float64       `protobuf:"fixed64,5,opt,name=totalVol,proto3" json:"totalVol,omitempty"`
+	TotalAmount float64       `protobuf:"fixed64,6,opt,name=totalAmount,proto3" json:"totalAmount,omitempty"`
+	UpStocks    float64       `protobuf:"fixed64,7,opt,name=upStocks,proto3" json:"upStocks,omitempty"`
+	DownStocks  float64       `protobuf:"fixed64,8,opt,name=downStocks,proto3" json:"downStocks,omitempty"`
+}
+
+func (x *DashBoardV1) Reset() {
+	*x = DashBoardV1{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_tstock_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DashBoardV1) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DashBoardV1) ProtoMessage() {}
+
+func (x *DashBoardV1) ProtoReflect() protoreflect.Message {
+	mi := &file_tstock_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DashBoardV1.ProtoReflect.Descriptor instead.
+func (*DashBoardV1) Descriptor() ([]byte, []int) {
+	return file_tstock_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DashBoardV1) GetDay() string {
+	if x != nil {
+		return x.Day
+	}
+	return ""
+}
+
+func (x *DashBoardV1) GetTop20Vol() []*NamedValue {
+	if x != nil {
+		return x.Top20Vol
+	}
+	return nil
+}
+
+func (x *DashBoardV1) GetUpLimit() []string {
+	if x != nil {
+		return x.UpLimit
+	}
+	return nil
+}
+
+func (x *DashBoardV1) GetDownLimit() []string {
+	if x != nil {
+		return x.DownLimit
+	}
+	return nil
+}
+
+func (x *DashBoardV1) GetTotalVol() float64 {
+	if x != nil {
+		return x.TotalVol
+	}
+	return 0
+}
+
+func (x *DashBoardV1) GetTotalAmount() float64 {
+	if x != nil {
+		return x.TotalAmount
+	}
+	return 0
+}
+
+func (x *DashBoardV1) GetUpStocks() float64 {
+	if x != nil {
+		return x.UpStocks
+	}
+	return 0
+}
+
+func (x *DashBoardV1) GetDownStocks() float64 {
+	if x != nil {
+		return x.DownStocks
+	}
+	return 0
+}
+
+type DashBoardMonth struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Mon       string         `protobuf:"bytes,1,opt,name=mon,proto3" json:"mon,omitempty"`
+	DailyDash []*DashBoardV1 `protobuf:"bytes,2,rep,name=dailyDash,proto3" json:"dailyDash,omitempty"`
+}
+
+func (x *DashBoardMonth) Reset() {
+	*x = DashBoardMonth{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_tstock_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DashBoardMonth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DashBoardMonth) ProtoMessage() {}
+
+func (x *DashBoardMonth) ProtoReflect() protoreflect.Message {
+	mi := &file_tstock_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DashBoardMonth.ProtoReflect.Descriptor instead.
+func (*DashBoardMonth) Descriptor() ([]byte, []int) {
+	return file_tstock_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DashBoardMonth) GetMon() string {
+	if x != nil {
+		return x.Mon
+	}
+	return ""
+}
+
+func (x *DashBoardMonth) GetDailyDash() []*DashBoardV1 {
+	if x != nil {
+		return x.DailyDash
+	}
+	return nil
+}
+
 var File_tstock_proto protoreflect.FileDescriptor
 
 var file_tstock_proto_rawDesc = []byte{
@@ -836,8 +1049,34 @@ var file_tstock_proto_rawDesc = []byte{
 	0x64, 0x61, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x03, 0x64, 0x61, 0x79, 0x12, 0x25,
 	0x0a, 0x04, 0x73, 0x74, 0x66, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x74,
 	0x73, 0x74, 0x6f, 0x63, 0x6b, 0x2e, 0x53, 0x74, 0x66, 0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x52,
-	0x04, 0x73, 0x74, 0x66, 0x73, 0x42, 0x0f, 0x5a, 0x0d, 0x66, 0x61, 0x63, 0x61, 0x64, 0x65, 0x2f,
-	0x74, 0x73, 0x74, 0x6f, 0x63, 0x6b, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x04, 0x73, 0x74, 0x66, 0x73, 0x22, 0x36, 0x0a, 0x0a, 0x4e, 0x61, 0x6d, 0x65, 0x64, 0x56, 0x61,
+	0x6c, 0x75, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x81, 0x02,
+	0x0a, 0x0b, 0x44, 0x61, 0x73, 0x68, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x56, 0x31, 0x12, 0x10, 0x0a,
+	0x03, 0x64, 0x61, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x64, 0x61, 0x79, 0x12,
+	0x2e, 0x0a, 0x08, 0x74, 0x6f, 0x70, 0x32, 0x30, 0x56, 0x6f, 0x6c, 0x18, 0x02, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x12, 0x2e, 0x74, 0x73, 0x74, 0x6f, 0x63, 0x6b, 0x2e, 0x4e, 0x61, 0x6d, 0x65, 0x64,
+	0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x08, 0x74, 0x6f, 0x70, 0x32, 0x30, 0x56, 0x6f, 0x6c, 0x12,
+	0x18, 0x0a, 0x07, 0x75, 0x70, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09,
+	0x52, 0x07, 0x75, 0x70, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x12, 0x1c, 0x0a, 0x09, 0x64, 0x6f, 0x77,
+	0x6e, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x04, 0x20, 0x03, 0x28, 0x09, 0x52, 0x09, 0x64, 0x6f,
+	0x77, 0x6e, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x74, 0x6f, 0x74, 0x61, 0x6c,
+	0x56, 0x6f, 0x6c, 0x18, 0x05, 0x20, 0x01, 0x28, 0x01, 0x52, 0x08, 0x74, 0x6f, 0x74, 0x61, 0x6c,
+	0x56, 0x6f, 0x6c, 0x12, 0x20, 0x0a, 0x0b, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x41, 0x6d, 0x6f, 0x75,
+	0x6e, 0x74, 0x18, 0x06, 0x20, 0x01, 0x28, 0x01, 0x52, 0x0b, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x41,
+	0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x75, 0x70, 0x53, 0x74, 0x6f, 0x63, 0x6b,
+	0x73, 0x18, 0x07, 0x20, 0x01, 0x28, 0x01, 0x52, 0x08, 0x75, 0x70, 0x53, 0x74, 0x6f, 0x63, 0x6b,
+	0x73, 0x12, 0x1e, 0x0a, 0x0a, 0x64, 0x6f, 0x77, 0x6e, 0x53, 0x74, 0x6f, 0x63, 0x6b, 0x73, 0x18,
+	0x08, 0x20, 0x01, 0x28, 0x01, 0x52, 0x0a, 0x64, 0x6f, 0x77, 0x6e, 0x53, 0x74, 0x6f, 0x63, 0x6b,
+	0x73, 0x22, 0x55, 0x0a, 0x0e, 0x44, 0x61, 0x73, 0x68, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f,
+	0x6e, 0x74, 0x68, 0x12, 0x10, 0x0a, 0x03, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x03, 0x6d, 0x6f, 0x6e, 0x12, 0x31, 0x0a, 0x09, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x44, 0x61,
+	0x73, 0x68, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x74, 0x73, 0x74, 0x6f, 0x63,
+	0x6b, 0x2e, 0x44, 0x61, 0x73, 0x68, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x56, 0x31, 0x52, 0x09, 0x64,
+	0x61, 0x69, 0x6c, 0x79, 0x44, 0x61, 0x73, 0x68, 0x42, 0x0f, 0x5a, 0x0d, 0x66, 0x61, 0x63, 0x61,
+	0x64, 0x65, 0x2f, 0x74, 0x73, 0x74, 0x6f, 0x63, 0x6b, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -852,26 +1091,31 @@ func file_tstock_proto_rawDescGZIP() []byte {
 	return file_tstock_proto_rawDescData
 }
 
-var file_tstock_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_tstock_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_tstock_proto_goTypes = []interface{}{
-	(*Candle)(nil),        // 0: tstock.Candle
-	(*Crypto)(nil),        // 1: tstock.Crypto
-	(*CnBasic)(nil),       // 2: tstock.CnBasic
-	(*StfInfo)(nil),       // 3: tstock.StfInfo
-	(*StfRecord)(nil),     // 4: tstock.StfRecord
-	(*CnBasicList)(nil),   // 5: tstock.CnBasicList
-	(*StfList)(nil),       // 6: tstock.StfList
-	(*StfRecordList)(nil), // 7: tstock.StfRecordList
+	(*Candle)(nil),         // 0: tstock.Candle
+	(*Crypto)(nil),         // 1: tstock.Crypto
+	(*CnBasic)(nil),        // 2: tstock.CnBasic
+	(*StfInfo)(nil),        // 3: tstock.StfInfo
+	(*StfRecord)(nil),      // 4: tstock.StfRecord
+	(*CnBasicList)(nil),    // 5: tstock.CnBasicList
+	(*StfList)(nil),        // 6: tstock.StfList
+	(*StfRecordList)(nil),  // 7: tstock.StfRecordList
+	(*NamedValue)(nil),     // 8: tstock.NamedValue
+	(*DashBoardV1)(nil),    // 9: tstock.DashBoardV1
+	(*DashBoardMonth)(nil), // 10: tstock.DashBoardMonth
 }
 var file_tstock_proto_depIdxs = []int32{
 	2, // 0: tstock.CnBasicList.cnBasicList:type_name -> tstock.CnBasic
 	3, // 1: tstock.StfList.stfs:type_name -> tstock.StfInfo
 	4, // 2: tstock.StfRecordList.stfs:type_name -> tstock.StfRecord
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	8, // 3: tstock.DashBoardV1.top20Vol:type_name -> tstock.NamedValue
+	9, // 4: tstock.DashBoardMonth.dailyDash:type_name -> tstock.DashBoardV1
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_tstock_proto_init() }
@@ -976,6 +1220,42 @@ func file_tstock_proto_init() {
 				return nil
 			}
 		}
+		file_tstock_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NamedValue); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_tstock_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DashBoardV1); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_tstock_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DashBoardMonth); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -983,7 +1263,7 @@ func file_tstock_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_tstock_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

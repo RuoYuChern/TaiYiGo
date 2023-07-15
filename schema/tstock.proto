@@ -78,3 +78,24 @@ message StfRecordList{
     uint64 day = 2;
     repeated StfRecord stfs = 3;
 }
+
+message NamedValue{
+    string name = 1;
+    double value = 2;
+}
+
+message DashBoardV1{
+    string day = 1;
+    repeated NamedValue top20Vol = 2;
+    repeated string upLimit = 3;
+    repeated string downLimit = 4;
+    double totalVol = 5;
+    double totalAmount = 6;
+    double upStocks = 7;
+    double downStocks = 8;
+}
+
+message DashBoardMonth{
+    string mon = 1;
+    repeated DashBoardV1 dailyDash = 2;
+}

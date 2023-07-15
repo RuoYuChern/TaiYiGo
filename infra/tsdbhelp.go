@@ -48,6 +48,7 @@ type tsdbFile struct {
 
 type tsFile struct {
 	file *os.File
+	flag int
 }
 
 type tsdbFMMap struct {
@@ -852,7 +853,7 @@ func (tr *tsdbBaReader) readAndRest(itemList *list.List) error {
 }
 
 func (tsf *tsFile) write(name string, msg proto.Message) error {
-	if err := tsf.open(os.O_CREATE, name); err != nil {
+	if err := tsf.open(tsf.flag, name); err != nil {
 		return err
 	}
 	defer tsf.file.Close()
@@ -865,7 +866,7 @@ func (tsf *tsFile) write(name string, msg proto.Message) error {
 }
 
 func (tsf *tsFile) read(name string, msg proto.Message) error {
-	if err := tsf.open(os.O_RDONLY, name); err != nil {
+	if err := tsf.open(tsf.flag, name); err != nil {
 		return err
 	}
 	defer tsf.file.Close()

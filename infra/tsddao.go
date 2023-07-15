@@ -3,6 +3,8 @@ package infra
 import (
 	"container/list"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
@@ -11,6 +13,10 @@ import (
 	"taiyigo.com/facade/tstock"
 )
 
+type DashBoardDao struct {
+	dashMon *tstock.DashBoardMonth
+}
+
 type memData struct {
 	cnShares        map[string]*tstock.CnBasic
 	cnSharesNameMap map[string]string
@@ -18,6 +24,66 @@ type memData struct {
 
 var gmemData *memData
 var gmenOnce sync.Once
+
+func (dbd *DashBoardDao) Add(dbdv *tstock.DashBoardV1) {
+	month := common.SubString(&dbdv.Day, 0, 4)
+	if dbd.dashMon != nil {
+		if strings.Compare(month, dbd.dashMon.Mon) < 0 {
+			return
+		}
+		if strings.Compare(month, dbd.dashMon.Mon) == 0 {
+			dbd.dashMon.DailyDash = append(dbd.dashMon.DailyDash, dbdv)
+			return
+		}
+		//先保存
+		dbd.Save()
+	}
+	dbd.dashMon = &tstock.DashBoardMonth{DailyDash: make([]*tstock.DashBoardV1, 0)}
+	dbd.dashMon.Mon = month
+	dbd.dashMon.DailyDash = append(dbd.dashMon.DailyDash, dbdv)
+}
+
+func (dbd *DashBoardDao) Save() {
+	if dbd.dashMon == nil {
+		return
+	}
+	tsf := tsFile{flag: os.O_RDONLY}
+	oldDbd := &tstock.DashBoardMonth{}
+	name := fmt.Sprintf("%s/meta/%s_dbd.dat", common.Conf.Infra.FsDir, dbd.dashMon.Mon)
+	err := tsf.read(name, oldDbd)
+	if err == nil {
+		//合并老数据
+		dailyDash := make([]*tstock.DashBoardV1, 0, 30)
+		nl := len(dbd.dashMon.DailyDash)
+		ol := len(oldDbd.DailyDash)
+		oldOff := 0
+		for off := 0; off < nl; off++ {
+			nd := dbd.dashMon.DailyDash[off]
+			for oldOff < ol {
+				od := oldDbd.DailyDash[oldOff]
+				cmp := strings.Compare(nd.Day, od.Day)
+				if cmp <= 0 {
+					//nd <= od
+					dailyDash = append(dailyDash, nd)
+					if cmp == 0 {
+						oldOff++
+					}
+					break
+				} else {
+					// nd > od
+					dailyDash = append(dailyDash, od)
+					oldOff++
+				}
+			}
+		}
+		dbd.dashMon.DailyDash = dailyDash
+	}
+	tsf = tsFile{flag: os.O_CREATE}
+	err = tsf.write(name, dbd.dashMon)
+	if err != nil {
+		common.Logger.Warnf("save %s, failed:%s", name, err)
+	}
+}
 
 func LoadMemData() {
 	gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}}
@@ -98,37 +164,37 @@ func SaveCnBasic(basics *list.List) error {
 		cnList.CnBasicList[off] = cnb
 		off++
 	}
-	tsf := tsFile{}
+	tsf := tsFile{flag: os.O_CREATE}
 	return tsf.write("cnbasic.dat", cnList)
 }
 
 func SaveStfList(status string, day string, msg proto.Message) error {
-	tsf := tsFile{}
+	tsf := tsFile{flag: os.O_CREATE}
 	name := fmt.Sprintf("%s_%s_stf.dat", day, status)
 	return tsf.write(name, msg)
 }
 
 func GetStfList(status string, day string, msg proto.Message) error {
-	tsf := tsFile{}
+	tsf := tsFile{flag: os.O_RDONLY}
 	name := fmt.Sprintf("%s_%s_stf.dat", day, status)
 	err := tsf.read(name, msg)
 	return err
 }
 
 func SaveStfRecord(msg proto.Message) error {
-	tsf := tsFile{}
+	tsf := tsFile{flag: os.O_CREATE}
 	name := "normal_S_stf.dat"
 	return tsf.write(name, msg)
 }
 
 func GetStfRecord(msg proto.Message) error {
-	tsf := tsFile{}
+	tsf := tsFile{flag: os.O_RDONLY}
 	name := "normal_S_stf.dat"
 	return tsf.read(name, msg)
 }
 
 func GetCnBasic(cnList *tstock.CnBasicList) error {
-	tsf := tsFile{}
+	tsf := tsFile{flag: os.O_RDONLY}
 	err := tsf.read("cnbasic.dat", cnList)
 	return err
 }

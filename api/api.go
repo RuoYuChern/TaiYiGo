@@ -128,6 +128,7 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.GET(fmt.Sprintf("%s/auth", common.Conf.Http.Prefix), jwtAuthMiddleware, auth)
 	router.GET(fmt.Sprintf("%s/hq/get-stf", common.Conf.Http.Prefix), getStfRecord)
 	router.GET(fmt.Sprintf("%s/hq/get-trend", common.Conf.Http.Prefix), getSymbolTrend)
+	router.GET(fmt.Sprintf("%s/hq/get-pair-trend", common.Conf.Http.Prefix), getSymbolPairTrend)
 
 	router.POST(fmt.Sprintf("%s/load-cn-history", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
 	router.POST(fmt.Sprintf("%s/start-cn-stf", common.Conf.Http.Prefix), jwtAuthMiddleware, startCnSTFFlow)

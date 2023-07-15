@@ -16,6 +16,6 @@ func (mnt *mtnIndicator) Calculate(index int) Decimal {
 	}
 	vnow := mnt.opt(mnt.ts.Get(index))
 	vbefor := mnt.opt(mnt.ts.Get(index - mnt.window))
-	diff := vnow.Sub(vbefor)
+	diff := vnow.Sub(vbefor).Div(NewDecimal(float64(mnt.window)))
 	return diff
 }

@@ -17,7 +17,7 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 		return nil, err
 	}
 
-	dataList, err := infra.GetSymbolNPoint(symbol, lastDay, 250)
+	dataList, err := infra.GetSymbolNPoint(symbol, lastDay, 300)
 	if err != nil {
 		common.Logger.Infof("GetSymbolNPoint failed: %s", err)
 		return nil, err
@@ -30,7 +30,10 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 	lsma := indicators.NewSimpleMovingAverage(ts, indicators.GetClose, 10)
 	ssma := indicators.NewSimpleMovingAverage(ts, indicators.GetClose, 8)
 	mnt := indicators.NewMtn(ts, indicators.GetClose, 10)
-	startOff := 10
+	startOff := (datLen - 200)
+	if startOff < 10 {
+		startOff = 10
+	}
 	tdata := make([]*dto.SymbolDaily, datLen-startOff)
 	for off := 0; off < datLen; off++ {
 		if off < startOff {
@@ -43,7 +46,7 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 		tdata[off-startOff] = &dto.SymbolDaily{Day: common.GetDay(common.YYYYMMDD, period), Open: candle.Open, Close: candle.Close}
 		tdata[off-startOff].High = candle.High
 		tdata[off-startOff].Low = candle.Low
-		tdata[off-startOff].Vol = float64(candle.Volume)
+		tdata[off-startOff].Vol = common.FFloat(float64(candle.Volume)/10000, 3)
 		tdata[off-startOff].Hld = common.FFloat(candle.High-candle.Low, 2)
 		tdata[off-startOff].LSma = lsma.Calculate(off).FormatFloat(2)
 		tdata[off-startOff].SSma = ssma.Calculate(off).FormatFloat(2)
