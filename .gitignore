@@ -11,5 +11,4 @@
 tao.yaml
 bin/*
 **/broker_data
-/taobff/taobff
 /data

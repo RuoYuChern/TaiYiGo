@@ -39,6 +39,7 @@ func doWork(topic *Topic) {
 			topic.cond.Wait()
 		}
 		if topic.q.Len() == 0 {
+			topic.cond.L.Unlock()
 			continue
 		}
 		front := topic.q.Front()
@@ -82,7 +83,7 @@ func poll(sList *list.List) {
 
 func (br *Brain) Start() {
 	br.topic = make(map[string]*Topic)
-	br.bc = make(chan int)
+	br.bc = make(chan int, 1)
 	go brainWork(br, br.bc)
 	topicList := []string{TOPIC_ADMIN, TOPIC_STF}
 	for _, v := range topicList {
