@@ -25,6 +25,8 @@ func (la loadActor) Action() {
 	act.Action()
 	act = deltaLoadCnActor{}
 	act.Action()
+	// act = &dashBoardMerge{}
+	// act.Action()
 }
 
 func (lcb loadCnBasic) Action() {

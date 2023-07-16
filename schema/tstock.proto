@@ -93,9 +93,15 @@ message DashBoardV1{
     double totalAmount = 6;
     double upStocks = 7;
     double downStocks = 8;
+    double stocks = 9;
 }
 
 message DashBoardMonth{
     string mon = 1;
     repeated DashBoardV1 dailyDash = 2;
+}
+
+message DashBoardYear{
+    string year = 1;
+    repeated DashBoardMonth monthDash = 2;
 }

@@ -165,6 +165,8 @@ func testBsd() {
 	for off := 0; off <= ts.LastIndex(); off++ {
 		log.Printf("Off:%d, ema:%f", off, id.Calculate(off).Float())
 	}
+
+	log.Printf("Year:%s", common.GetYear(time.Now()))
 }
 
 func testSingle() {

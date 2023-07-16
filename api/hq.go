@@ -157,3 +157,17 @@ func getStfRecord(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, &rsp)
 }
+
+func getDashboard(c *gin.Context) {
+	rsp := dto.DashDailyResponse{}
+	rsp.Code = http.StatusOK
+	rsp.Msg = "OK"
+	data, err := calLatestDash()
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+	} else {
+		rsp.Data = data
+	}
+	c.JSON(http.StatusOK, &rsp)
+}

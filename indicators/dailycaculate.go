@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	UPLIMIT_LEVEL   = 0.95
-	DOWNLIMIT_LEVEL = -0.95
+	UPLIMIT_LEVEL   = 0.095
+	DOWNLIMIT_LEVEL = -0.095
 )
 
 type DayBoradCal struct {
@@ -96,6 +96,7 @@ func (dbc *DayBoradCal) Cal(day string, symbol string, candle *tstock.Candle) {
 	}
 	dbc.dbdv.TotalAmount += candle.Amount
 	dbc.dbdv.TotalVol += float64(candle.Volume)
+	dbc.dbdv.Stocks += 1
 	nv := &tstock.NamedValue{Name: symbol, Value: float64(candle.Volume)}
 	if dbc.hp == nil {
 		dbc.hp = common.NewLp(20, func(a1, a2 any) int {

@@ -37,11 +37,10 @@ func doWork(topic *Topic) {
 		topic.cond.L.Lock()
 		if topic.q.Len() == 0 {
 			topic.cond.Wait()
-		}
-		if topic.q.Len() == 0 {
 			topic.cond.L.Unlock()
 			continue
 		}
+
 		front := topic.q.Front()
 		topic.q.Remove(front)
 		topic.cond.L.Unlock()

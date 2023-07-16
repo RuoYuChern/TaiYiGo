@@ -4,6 +4,12 @@ type CnAdminCmd struct {
 	Opt string `json:"opt"`
 }
 
+type JustifyReq struct {
+	Table string `json:"table"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 type SymbolDaily struct {
 	Day   string  `json:"day"`
 	Open  float64 `json:"open"`
@@ -56,4 +62,22 @@ type StfResponse struct {
 	Code int        `json:"code"`
 	Msg  string     `json:"msg"`
 	Data []*StfItem `json:"data"`
+}
+
+type DashDaily struct {
+	Day        string  `json:"day"`
+	Vol        float64 `json:"vol"`
+	Top20Vol   float64 `json:"topVol"`
+	Amount     float64 `json:"amount"`
+	UpStocks   int     `json:"upStocks"`
+	DownStocks int     `json:"downStocks"`
+	UpLimit    int     `json:"upLimit"`
+	DownLimit  int     `json:"downLimit"`
+	Mood       int     `json:"mood"`
+}
+
+type DashDailyResponse struct {
+	Code int          `json:"code"`
+	Msg  string       `json:"msg"`
+	Data []*DashDaily `json:"data"`
 }

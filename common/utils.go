@@ -2,10 +2,13 @@ package common
 
 import (
 	"bytes"
+	"container/list"
 	"crypto/md5"
 	"encoding/base64"
 	"io"
+	"io/fs"
 	"math"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +20,10 @@ var (
 
 func GetDay(f string, t time.Time) string {
 	return t.Format(f)
+}
+
+func GetYear(t time.Time) string {
+	return strconv.Itoa(t.Year())
 }
 
 func ToDay(f string, tstr string) (time.Time, error) {
@@ -79,12 +86,45 @@ func FFloat(f float64, decimal int) float64 {
 	return fv
 }
 
-func SubString(source *string, start int, end int) string {
-	length := len(*source)
+func SubString(source string, start int, end int) string {
+	length := len(source)
 	if (start == 0) && (end == length) {
-		return *source
+		return source
 	}
 
-	var r = []rune(*source)
+	var r = []rune(source)
 	return string(r[start:end])
+}
+
+func GetFileList(dir string, sufix string, exclude string, size int) (*list.List, error) {
+	lhp := NewLp(size+1, func(a1, a2 any) int {
+		v1 := a1.(string)
+		v2 := a2.(string)
+		return strings.Compare(v1, v2)
+	})
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), sufix) || strings.HasSuffix(d.Name(), exclude) {
+			return nil
+		}
+		lhp.Add(d.Name())
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	fsList := list.New()
+	for {
+		v := lhp.Top()
+		if v == nil {
+			break
+		}
+		fsList.PushBack(v)
+	}
+	return fsList, nil
 }

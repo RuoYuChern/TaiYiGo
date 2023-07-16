@@ -26,7 +26,7 @@ var gmemData *memData
 var gmenOnce sync.Once
 
 func (dbd *DashBoardDao) Add(dbdv *tstock.DashBoardV1) {
-	month := common.SubString(&dbdv.Day, 0, 6)
+	month := common.SubString(dbdv.Day, 0, 6)
 	if dbd.dashMon != nil {
 		if strings.Compare(month, dbd.dashMon.Mon) < 0 {
 			return
@@ -76,6 +76,12 @@ func (dbd *DashBoardDao) Save() {
 				}
 			}
 		}
+		//
+		for oldOff < ol {
+			od := oldDbd.DailyDash[oldOff]
+			dailyDash = append(dailyDash, od)
+			oldOff++
+		}
 		dbd.dashMon.DailyDash = dailyDash
 	}
 	tsf = tsFile{flag: os.O_CREATE}
@@ -97,6 +103,29 @@ func LoadMemData() {
 		gmemData.cnShares[v.Symbol] = v
 		gmemData.cnSharesNameMap[v.Name] = v.Symbol
 	}
+}
+
+func GetLastNMonthDash(month int) []*tstock.DashBoardMonth {
+	dir := fmt.Sprintf("%s/meta", common.Conf.Infra.FsDir)
+	fsList, err := common.GetFileList(dir, "dbd.dat", "hdbd.dat", month)
+	if err != nil {
+		common.Logger.Warnf("GetFileList:%s", err)
+		return nil
+	}
+	dbm := make([]*tstock.DashBoardMonth, fsList.Len())
+	off := 0
+	for f := fsList.Front(); f != nil; f = f.Next() {
+		dm := &tstock.DashBoardMonth{}
+		ts := tsFile{flag: os.O_RDONLY}
+		err := ts.read(f.Value.(string), dm)
+		if err != nil {
+			common.Logger.Infof("read %s failed:%s", f.Value.(string), err)
+			continue
+		}
+		dbm[off] = dm
+		off++
+	}
+	return dbm
 }
 
 func GetSymbolName(symbol string) string {
@@ -127,6 +156,9 @@ func GetSymbolNPoint(symbol, date string, n int) ([]*tstock.Candle, error) {
 	datList, err := tql.GetPointN(uint64(lastTime.UnixMilli()), n)
 	tsd.CloseQuery(tql)
 	tsd.Close()
+	if err != nil {
+		return nil, err
+	}
 	items := make([]*tstock.Candle, datList.Len())
 	off := 0
 	for front := datList.Front(); front != nil; front = front.Next() {
@@ -164,37 +196,52 @@ func SaveCnBasic(basics *list.List) error {
 		cnList.CnBasicList[off] = cnb
 		off++
 	}
-	tsf := tsFile{flag: os.O_CREATE}
-	return tsf.write("cnbasic.dat", cnList)
+
+	return SaveMsg("cnbasic.dat", cnList)
 }
 
 func SaveStfList(status string, day string, msg proto.Message) error {
-	tsf := tsFile{flag: os.O_CREATE}
 	name := fmt.Sprintf("%s_%s_stf.dat", day, status)
-	return tsf.write(name, msg)
+	return SaveMsg(name, msg)
 }
 
 func GetStfList(status string, day string, msg proto.Message) error {
-	tsf := tsFile{flag: os.O_RDONLY}
 	name := fmt.Sprintf("%s_%s_stf.dat", day, status)
-	err := tsf.read(name, msg)
+	err := GetMsg(name, msg)
 	return err
 }
 
 func SaveStfRecord(msg proto.Message) error {
-	tsf := tsFile{flag: os.O_CREATE}
 	name := "normal_S_stf.dat"
-	return tsf.write(name, msg)
+	return SaveMsg(name, msg)
 }
 
 func GetStfRecord(msg proto.Message) error {
-	tsf := tsFile{flag: os.O_RDONLY}
 	name := "normal_S_stf.dat"
-	return tsf.read(name, msg)
+	return GetMsg(name, msg)
 }
 
 func GetCnBasic(cnList *tstock.CnBasicList) error {
+	err := GetMsg("cnbasic.dat", cnList)
+	return err
+}
+
+func GetMsg(name string, msg proto.Message) error {
 	tsf := tsFile{flag: os.O_RDONLY}
-	err := tsf.read("cnbasic.dat", cnList)
+	err := tsf.read(name, msg)
+	return err
+}
+
+func RemoveMsg(name string) {
+	fn := fmt.Sprintf("%s/meta/%s", common.Conf.Infra.FsDir, name)
+	os.Remove(fn)
+}
+
+func SaveMsg(name string, msg proto.Message) error {
+	tsf := tsFile{flag: os.O_CREATE}
+	err := tsf.write(name, msg)
+	if err != nil {
+		common.Logger.Warnf("SaveMsg:%s failed:%s", name, err)
+	}
 	return err
 }

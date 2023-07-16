@@ -52,7 +52,7 @@ func (actor *loadHistoryActor) Action() {
 		return
 	}
 	//now := common.GetDay(common.YYYYMMDD, time.Now())
-	now := "20230714"
+	now := common.Conf.Quotes.HistoryEnd
 	b, err := infra.CheckAndSet(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY, now)
 	if err != nil {
 		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
@@ -71,6 +71,7 @@ func (actor *loadHistoryActor) Action() {
 	}
 
 	datRang := []yearItems{{"20200101", "20201231"}, {"20210101", "20211231"}, {"20220101", "20221231"}, {"20230101", now}}
+	// datRang := []yearItems{{"20230701", now}}
 	cnShareStatus := make(map[string]string)
 	timeStart := time.Now()
 	for _, v := range datRang {
@@ -125,6 +126,37 @@ func mergeSTF(c *gin.Context) {
 	}
 	c.String(http.StatusOK, "Commond submitted")
 	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &brain.MergeSTF{})
+}
+
+func mergeAll(c *gin.Context) {
+	cmd := dto.CnAdminCmd{}
+	if err := c.BindJSON(&cmd); err != nil {
+		common.Logger.Infoln("Can not find args")
+		c.String(http.StatusBadRequest, "Can not find args")
+		return
+	}
+	if cmd.Opt != "START" {
+		common.Logger.Infoln("opt is error")
+		c.String(http.StatusBadRequest, "opt is error")
+		return
+	}
+	c.String(http.StatusOK, "Commond submitted")
+	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &brain.MergeAll{})
+}
+
+func justifyKeyValue(c *gin.Context) {
+	cmd := dto.JustifyReq{}
+	if err := c.BindJSON(&cmd); err != nil {
+		common.Logger.Infoln("Can not find args")
+		c.String(http.StatusBadRequest, "Can not find args")
+		return
+	}
+	err := infra.SetKeyValue(cmd.Table, cmd.Key, cmd.Value)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+	} else {
+		c.String(http.StatusOK, "OK")
+	}
 }
 
 func startCnSTFFlow(c *gin.Context) {
