@@ -335,16 +335,16 @@ func testCnShares() {
 	// 	front := out.Front().Value.(*infra.CnSharesBasic)
 	// 	log.Printf("%+v", front)
 	// }
-	out, err := infra.GetBasicFromTj()
-	if err != nil {
-		log.Printf("It is error:%s", err)
-	} else {
-		log.Printf("len:%d", out.Len())
-		front := out.Front().Value.(*infra.TjCnBasicInfo)
-		log.Printf("%+v", front)
-	}
+	// out, err := infra.GetBasicFromTj()
+	// if err != nil {
+	// 	log.Printf("It is error:%s", err)
+	// } else {
+	// 	log.Printf("len:%d", out.Len())
+	// 	front := out.Front().Value.(*infra.TjCnBasicInfo)
+	// 	log.Printf("%+v", front)
+	// }
 
-	dailyList, err := infra.GetDailyFromTj("002701.SZ", "20230707", "20230712")
+	dailyList, err := infra.GetDailyFromTj("000540.SZ", "20230715", "20230717")
 	if err != nil {
 		log.Printf("It is error:%s", err)
 	} else {
@@ -379,7 +379,7 @@ func testHeap() {
 }
 
 func main() {
-	c := 'H'
+	c := 'A'
 	testBsd()
 	switch c {
 	case 'b':

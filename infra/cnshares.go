@@ -55,7 +55,6 @@ type tjDailyRsp struct {
 
 var (
 	tuShareUrl = "http://api.tushare.pro"
-	tjUrl      = "https://www.taiji666.top"
 )
 
 func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyInfo, error) {
@@ -70,7 +69,7 @@ func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyI
 	headers["X-TJ-NOISE"] = content
 	headers["X-TJ-SIGNATURE"] = common.MD5Sign(common.Conf.Quotes.Sault, content, timeStr)
 	rsp := tjDailyRsp{}
-	err := doGet(tjUrl, "/api/hq/get-symbol", params, headers, &rsp)
+	err := doGet(common.Conf.Quotes.TjUrl, "/api/hq/get-symbol", params, headers, &rsp)
 	if err != nil {
 		common.Logger.Infof("GetBasicFromTj failed: %s", err)
 		return nil, err
@@ -91,7 +90,7 @@ func GetBasicFromTj() (*list.List, error) {
 		headers["X-TJ-NOISE"] = content
 		headers["X-TJ-SIGNATURE"] = common.MD5Sign(common.Conf.Quotes.Sault, content, timeStr)
 		rsp := tjCnBasicRsp{}
-		err := doGet(tjUrl, "/api/hq/get-cn-basic", params, headers, &rsp)
+		err := doGet(common.Conf.Quotes.TjUrl, "/api/hq/get-cn-basic", params, headers, &rsp)
 		if err != nil {
 			common.Logger.Infof("GetBasicFromTj failed: %s", err)
 			return nil, err

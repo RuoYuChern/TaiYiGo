@@ -159,6 +159,22 @@ func justifyKeyValue(c *gin.Context) {
 	}
 }
 
+func justifyStat(c *gin.Context) {
+	cmd := dto.CnAdminCmd{}
+	if err := c.BindJSON(&cmd); err != nil {
+		common.Logger.Infoln("Can not find args")
+		c.String(http.StatusBadRequest, "Can not find args")
+		return
+	}
+	if cmd.Opt != "START" || cmd.Value == "" {
+		common.Logger.Infoln("opt is error")
+		c.String(http.StatusBadRequest, "opt is error")
+		return
+	}
+	c.String(http.StatusOK, "Commond submitted")
+	brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &brain.JustifyStat{StartDay: cmd.Value})
+}
+
 func startCnSTFFlow(c *gin.Context) {
 	cmd := dto.CnAdminCmd{}
 	if err := c.BindJSON(&cmd); err != nil {

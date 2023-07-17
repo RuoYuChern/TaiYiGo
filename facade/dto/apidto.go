@@ -1,7 +1,8 @@
 package dto
 
 type CnAdminCmd struct {
-	Opt string `json:"opt"`
+	Opt   string `json:"opt"`
+	Value string `json:"value"`
 }
 
 type JustifyReq struct {
@@ -80,4 +81,33 @@ type DashDailyResponse struct {
 	Code int          `json:"code"`
 	Msg  string       `json:"msg"`
 	Data []*DashDaily `json:"data"`
+}
+
+type UpDownItem struct {
+	Name   string `json:"name"`
+	Symbol string `json:"symbol"`
+	Day    string `json:"day"`
+	Flag   int    `json:"flag"`
+}
+
+type UpDownResponse struct {
+	Code int           `json:"code"`
+	Msg  string        `json:"msg"`
+	Data []*UpDownItem `json:"data"`
+}
+
+type HotItem struct {
+	Name    string  `json:"name"`
+	Symbol  string  `json:"symbol"`
+	Vol     float64 `json:"vol"`
+	HotRate int     `json:"hot"`
+	HotDays int     `json:"hotDays"`
+	LowDay  string  `json:"lowday"`
+	HighDay string  `json:"highday"`
+}
+
+type GetHotResponse struct {
+	Code int        `json:"code"`
+	Msg  string     `json:"msg"`
+	Data []*HotItem `json:"data"`
 }

@@ -26,7 +26,9 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 			if strings.Compare(highDay, cnShareLastDay) <= 0 {
 				continue
 			}
-			startDay = cnShareLastDay
+			if strings.Compare(startDay, cnShareLastDay) < 0 {
+				startDay = cnShareLastDay
+			}
 		}
 		limter.Take()
 		daily, err := infra.GetDailyFromTj(cnBasic.Symbol, startDay, highDay)
@@ -62,7 +64,7 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 				tsDb.CloseAppender(tbl)
 				return 0, err
 			}
-			ndbc.Cal(dailyInfo.Day, dailyInfo.Symbol, candle)
+			ndbc.Cal(daily[dOff].Day, daily[dOff].Symbol, candle)
 			cnShareStatus[daily[dOff].Symbol] = daily[dOff].Day
 		}
 		tsDb.CloseAppender(tbl)

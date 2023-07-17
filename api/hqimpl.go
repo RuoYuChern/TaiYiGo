@@ -128,3 +128,76 @@ func calLatestDash() ([]*dto.DashDaily, error) {
 	}
 	return data, nil
 }
+
+func getLastUpDown() ([]*dto.UpDownItem, error) {
+	dailyList := infra.GetLastNDayDash(5, false)
+	if dailyList == nil {
+		common.Logger.Infof("No data")
+		return nil, errors.New("no data")
+	}
+	data := make([]*dto.UpDownItem, 0)
+	for _, d := range dailyList {
+		for _, u := range d.UpLimit {
+			udi := &dto.UpDownItem{Day: d.Day, Symbol: u}
+			udi.Flag = 1
+			udi.Name = infra.GetSymbolName(u)
+			data = append(data, udi)
+		}
+		for _, dn := range d.DownLimit {
+			udi := &dto.UpDownItem{Day: d.Day, Symbol: dn}
+			udi.Flag = 0
+			udi.Name = infra.GetSymbolName(dn)
+			data = append(data, udi)
+		}
+	}
+	return data, nil
+}
+
+func getLatestHot() ([]*dto.HotItem, error) {
+	dailyList := infra.GetLastNDayDash(20, true)
+	if dailyList == nil {
+		common.Logger.Infof("No data")
+		return nil, errors.New("no data")
+	}
+	hotMap := make(map[string]*dto.HotItem)
+	for _, d := range dailyList {
+		for _, tp := range d.Top20Vol {
+			ht, ok := hotMap[tp.Name]
+			if ok {
+				ht.HighDay = d.Day
+				ht.HotDays = ht.HotDays + 1
+				ht.Vol = ht.Vol + tp.Value
+			} else {
+				ht = &dto.HotItem{LowDay: d.Day, HighDay: d.Day, HotDays: 1, Vol: tp.Value}
+				ht.Symbol = tp.Name
+				ht.Name = infra.GetSymbolName(ht.Symbol)
+				hotMap[tp.Name] = ht
+			}
+		}
+	}
+	lhp := common.NewLp(len(hotMap)+1, func(a1, a2 any) int {
+		v1 := a1.(*dto.HotItem)
+		v2 := a2.(*dto.HotItem)
+		if v1.Vol < v2.Vol {
+			return -1
+		} else if v1.Vol == v2.Vol {
+			return 0
+		} else {
+			return 1
+		}
+	})
+	totalVol := 0.0
+	for _, v := range hotMap {
+		v.Vol = common.FFloat(v.Vol/float64(v.HotDays), 4)
+		totalVol += v.Vol
+		lhp.Add(v)
+	}
+	data := make([]*dto.HotItem, lhp.Len())
+	for lhp.Len() > 0 {
+		off := lhp.Len() - 1
+		di := lhp.Top().(*dto.HotItem)
+		di.HotRate = int(di.Vol * 100 / totalVol)
+		data[off] = di
+	}
+	return data, nil
+}

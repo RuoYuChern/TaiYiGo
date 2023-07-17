@@ -130,6 +130,8 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.GET(fmt.Sprintf("%s/hq/get-trend", common.Conf.Http.Prefix), getSymbolTrend)
 	router.GET(fmt.Sprintf("%s/hq/get-pair-trend", common.Conf.Http.Prefix), getSymbolPairTrend)
 	router.GET(fmt.Sprintf("%s/hq/get-dash", common.Conf.Http.Prefix), getDashboard)
+	router.GET(fmt.Sprintf("%s/hq/get-up-down", common.Conf.Http.Prefix), getUpDown)
+	router.GET(fmt.Sprintf("%s/hq/get-hot", common.Conf.Http.Prefix), getHot)
 
 	router.POST(fmt.Sprintf("%s/load-cn-history", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
 	router.POST(fmt.Sprintf("%s/start-cn-stf", common.Conf.Http.Prefix), jwtAuthMiddleware, startCnSTFFlow)
@@ -137,6 +139,7 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.POST(fmt.Sprintf("%s/merge-stf", common.Conf.Http.Prefix), jwtAuthMiddleware, mergeSTF)
 	router.POST(fmt.Sprintf("%s/merge-all", common.Conf.Http.Prefix), jwtAuthMiddleware, mergeAll)
 	router.POST(fmt.Sprintf("%s/justify-kv", common.Conf.Http.Prefix), jwtAuthMiddleware, justifyKeyValue)
+	router.POST(fmt.Sprintf("%s/justify-stat", common.Conf.Http.Prefix), jwtAuthMiddleware, justifyStat)
 	api.srv = &http.Server{
 		Addr:    fmt.Sprintf(":%d", common.Conf.Http.Port),
 		Handler: router,

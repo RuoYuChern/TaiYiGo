@@ -37,41 +37,43 @@ func (dbd *DashBoardDao) Add(dbdv *tstock.DashBoardV1) {
 		}
 		//先保存
 		dbd.Save()
+		dbd.dashMon = nil
 	}
 	dbd.dashMon = &tstock.DashBoardMonth{DailyDash: make([]*tstock.DashBoardV1, 0)}
 	dbd.dashMon.Mon = month
 	dbd.dashMon.DailyDash = append(dbd.dashMon.DailyDash, dbdv)
 }
 
-func (dbd *DashBoardDao) Save() {
-	if dbd.dashMon == nil {
+func (dao *DashBoardDao) Save() {
+	if dao.dashMon == nil {
 		return
 	}
-	tsf := tsFile{flag: os.O_RDONLY}
 	oldDbd := &tstock.DashBoardMonth{}
-	name := fmt.Sprintf("%s_dbd.dat", dbd.dashMon.Mon)
-	err := tsf.read(name, oldDbd)
+	name := fmt.Sprintf("%s_dbd.dat", dao.dashMon.Mon)
+	common.Logger.Infof("Save mone:%s", dao.dashMon.Mon)
+	err := GetMsg(name, oldDbd)
 	if err == nil {
 		//合并老数据
-		dailyDash := make([]*tstock.DashBoardV1, 0, 30)
-		nl := len(dbd.dashMon.DailyDash)
+		common.Logger.Infof("merge old data:%s", dao.dashMon.Mon)
+		mergeDash := make([]*tstock.DashBoardV1, 0, 30)
+		nl := len(dao.dashMon.DailyDash)
 		ol := len(oldDbd.DailyDash)
 		oldOff := 0
 		for off := 0; off < nl; off++ {
-			nd := dbd.dashMon.DailyDash[off]
+			nd := dao.dashMon.DailyDash[off]
 			for oldOff < ol {
 				od := oldDbd.DailyDash[oldOff]
 				cmp := strings.Compare(nd.Day, od.Day)
 				if cmp <= 0 {
 					//nd <= od
-					dailyDash = append(dailyDash, nd)
+					mergeDash = append(mergeDash, nd)
 					if cmp == 0 {
 						oldOff++
 					}
 					break
 				} else {
 					// nd > od
-					dailyDash = append(dailyDash, od)
+					mergeDash = append(mergeDash, od)
 					oldOff++
 				}
 			}
@@ -79,13 +81,14 @@ func (dbd *DashBoardDao) Save() {
 		//
 		for oldOff < ol {
 			od := oldDbd.DailyDash[oldOff]
-			dailyDash = append(dailyDash, od)
+			mergeDash = append(mergeDash, od)
 			oldOff++
 		}
-		dbd.dashMon.DailyDash = dailyDash
+		mgrMonDash := &tstock.DashBoardMonth{Mon: dao.dashMon.Mon, DailyDash: mergeDash}
+		err = SaveMsg(name, mgrMonDash)
+	} else {
+		err = SaveMsg(name, dao.dashMon)
 	}
-	tsf = tsFile{flag: os.O_CREATE}
-	err = tsf.write(name, dbd.dashMon)
 	if err != nil {
 		common.Logger.Warnf("save %s, failed:%s", name, err)
 	}
@@ -116,16 +119,62 @@ func GetLastNMonthDash(month int) []*tstock.DashBoardMonth {
 	off := 0
 	for f := fsList.Front(); f != nil; f = f.Next() {
 		dm := &tstock.DashBoardMonth{}
-		ts := tsFile{flag: os.O_RDONLY}
-		err := ts.read(f.Value.(string), dm)
+		err = GetMsg(f.Value.(string), dm)
 		if err != nil {
 			common.Logger.Infof("read %s failed:%s", f.Value.(string), err)
-			continue
+			return nil
 		}
 		dbm[off] = dm
 		off++
 	}
 	return dbm
+}
+
+func GetLastNDayDash(day int, up bool) []*tstock.DashBoardV1 {
+	month := (day / 30) + 1
+	dir := fmt.Sprintf("%s/meta", common.Conf.Infra.FsDir)
+	fsList, err := common.GetFileList(dir, "dbd.dat", "hdbd.dat", month)
+	if err != nil {
+		common.Logger.Warnf("GetFileList:%s", err)
+		return nil
+	}
+	dList := list.New()
+	for t := fsList.Back(); t != nil; t = t.Prev() {
+		dm := &tstock.DashBoardMonth{}
+		err = GetMsg(t.Value.(string), dm)
+		if err != nil {
+			common.Logger.Infof("read %s failed:%s", t.Value.(string), err)
+			return nil
+		}
+		off := len(dm.DailyDash) - 1
+		for off >= 0 {
+			dList.PushFront(dm.DailyDash[off])
+			off -= 1
+			if dList.Len() == day {
+				break
+			}
+		}
+		if dList.Len() == day {
+			break
+		}
+	}
+	if dList.Len() == 0 {
+		return nil
+	}
+	dbdvs := make([]*tstock.DashBoardV1, dList.Len())
+	off := 0
+	if up {
+		for f := dList.Front(); f != nil; f = f.Next() {
+			dbdvs[off] = f.Value.(*tstock.DashBoardV1)
+			off++
+		}
+	} else {
+		for f := dList.Back(); f != nil; f = f.Prev() {
+			dbdvs[off] = f.Value.(*tstock.DashBoardV1)
+			off++
+		}
+	}
+	return dbdvs
 }
 
 func GetSymbolName(symbol string) string {

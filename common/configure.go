@@ -31,6 +31,7 @@ type infraConf struct {
 type quotesConf struct {
 	TuToken    string `yaml:"tu.share.token"`
 	Sault      string `yaml:"taiji.sault"`
+	TjUrl      string `yaml:"taiji.url"`
 	HistoryEnd string `yaml:"history.end"`
 }
 

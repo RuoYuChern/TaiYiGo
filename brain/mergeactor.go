@@ -5,8 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
+	"taiyigo.com/facade/tsdb"
 	"taiyigo.com/facade/tstock"
+	"taiyigo.com/indicators"
 	"taiyigo.com/infra"
 )
 
@@ -22,9 +25,59 @@ type MergeAll struct {
 	common.Actor
 }
 
+type JustifyStat struct {
+	common.Actor
+	StartDay string
+}
+
 func (ma *MergeAll) Action() {
 	act := dashBoardMerge{}
 	act.Action()
+}
+
+func (jst *JustifyStat) Action() {
+	common.Logger.Infof("JustifyStat start ")
+	cnList := &tstock.CnBasicList{}
+	err := infra.GetCnBasic(cnList)
+	if err != nil {
+		common.Logger.Infof("GetCnBasic failed:%s", err)
+		return
+	}
+	ndbc := indicators.NewNDbc()
+	for _, basic := range cnList.CnBasicList {
+		cnShareLastDay, err := infra.GetByKey(infra.CONF_TABLE, basic.Symbol)
+		if err != nil {
+			continue
+		}
+		if strings.Compare(cnShareLastDay, jst.StartDay) <= 0 {
+			continue
+		}
+
+		start, _ := common.ToDay(common.YYYYMMDD, jst.StartDay)
+		end, _ := common.ToDay(common.YYYYMMDD, cnShareLastDay)
+		tsql := infra.Gettsdb().OpenQuery(basic.Symbol)
+		dlist, err := tsql.GetRange(uint64(start.UnixMilli()), uint64(end.UnixMilli()), 0)
+		infra.Gettsdb().CloseQuery(tsql)
+
+		if err != nil {
+			common.Logger.Infof("Symbol %s,between [%s, %s] error:%s", basic.Symbol, jst.StartDay, cnShareLastDay, err.Error())
+			continue
+		}
+		common.Logger.Infof("Symbol:%s, between [%s, %s], total:%d", basic.Symbol, jst.StartDay, cnShareLastDay, dlist.Len())
+		for f := dlist.Front(); f != nil; f = f.Next() {
+			candle := &tstock.Candle{}
+			value := f.Value.(*tsdb.TsdbData)
+			err = proto.Unmarshal(value.Data, candle)
+			if err != nil {
+				common.Logger.Warnf("Unmarshal failed:%s", err)
+				return
+			}
+			period := time.Unix(int64(candle.Period/1000), 0)
+			day := common.GetDay(common.YYYYMMDD, period)
+			ndbc.Cal(day, basic.Symbol, candle)
+		}
+	}
+	ndbc.Save()
 }
 
 func (dbm *dashBoardMerge) Action() {
@@ -39,7 +92,6 @@ func (dbm *dashBoardMerge) Action() {
 	curYear := common.GetYear(time.Now())
 	for f := fsList.Front(); f != nil; f = f.Next() {
 		fn := f.Value.(string)
-		common.Logger.Infof("Fn:%s", fn)
 		if strings.HasPrefix(fn, curYear) {
 			break
 		}

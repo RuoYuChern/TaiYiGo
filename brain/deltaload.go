@@ -25,8 +25,6 @@ func (la loadActor) Action() {
 	act.Action()
 	act = deltaLoadCnActor{}
 	act.Action()
-	// act = &dashBoardMerge{}
-	// act.Action()
 }
 
 func (lcb loadCnBasic) Action() {
@@ -68,7 +66,7 @@ func (dlc deltaLoadCnActor) Action() {
 	}
 	// 时间推后一天
 	lastDay, _ = common.GetNextDay(lastDay)
-	common.Logger.Infof("delta loading between [%s, %s]", lastDay, now)
+	common.Logger.Infof("delta loading between [%s, %s], cnList:%d", lastDay, now, len(cnList.CnBasicList))
 	cnShareStatus := make(map[string]string)
 	timeStart := time.Now()
 	rangeTotal, err := LoadSymbolDaily(cnList, lastDay, now, cnShareStatus)

@@ -171,3 +171,31 @@ func getDashboard(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, &rsp)
 }
+
+func getUpDown(c *gin.Context) {
+	rsp := dto.UpDownResponse{}
+	rsp.Code = http.StatusOK
+	rsp.Msg = "OK"
+	data, err := getLastUpDown()
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+	} else {
+		rsp.Data = data
+	}
+	c.JSON(http.StatusOK, &rsp)
+}
+
+func getHot(c *gin.Context) {
+	rsp := dto.GetHotResponse{}
+	rsp.Code = http.StatusOK
+	rsp.Msg = "OK"
+	data, err := getLatestHot()
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+	} else {
+		rsp.Data = data
+	}
+	c.JSON(http.StatusOK, &rsp)
+}
