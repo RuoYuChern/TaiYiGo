@@ -63,7 +63,7 @@ func (jst *JustifyStat) Action() {
 			common.Logger.Infof("Symbol %s,between [%s, %s] error:%s", basic.Symbol, jst.StartDay, cnShareLastDay, err.Error())
 			continue
 		}
-		common.Logger.Infof("Symbol:%s, between [%s, %s], total:%d", basic.Symbol, jst.StartDay, cnShareLastDay, dlist.Len())
+		common.Logger.Debugf("Symbol:%s, between [%s, %s], total:%d", basic.Symbol, jst.StartDay, cnShareLastDay, dlist.Len())
 		for f := dlist.Front(); f != nil; f = f.Next() {
 			candle := &tstock.Candle{}
 			value := f.Value.(*tsdb.TsdbData)

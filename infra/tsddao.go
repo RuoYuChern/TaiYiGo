@@ -50,41 +50,40 @@ func (dao *DashBoardDao) Save() {
 	}
 	oldDbd := &tstock.DashBoardMonth{}
 	name := fmt.Sprintf("%s_dbd.dat", dao.dashMon.Mon)
-	common.Logger.Infof("Save mone:%s", dao.dashMon.Mon)
 	err := GetMsg(name, oldDbd)
 	if err == nil {
 		//合并老数据
-		common.Logger.Infof("merge old data:%s", dao.dashMon.Mon)
-		mergeDash := make([]*tstock.DashBoardV1, 0, 30)
-		nl := len(dao.dashMon.DailyDash)
-		ol := len(oldDbd.DailyDash)
+		mergeDash := make([]*tstock.DashBoardV1, 0)
+		newLen := len(dao.dashMon.DailyDash)
+		oldLen := len(oldDbd.DailyDash)
 		oldOff := 0
-		for off := 0; off < nl; off++ {
+		common.Logger.Infof("merge old data:%s, oldLen:%d, newLen:%d", oldDbd.Mon, oldLen, newLen)
+		for off := 0; off < newLen; off++ {
 			nd := dao.dashMon.DailyDash[off]
-			for oldOff < ol {
+			for oldOff < oldLen {
 				od := oldDbd.DailyDash[oldOff]
 				cmp := strings.Compare(nd.Day, od.Day)
-				if cmp <= 0 {
-					//nd <= od
-					mergeDash = append(mergeDash, nd)
+				if cmp > 0 {
+					// nd > od
+					mergeDash = append(mergeDash, od)
+					oldOff++
+				} else {
 					if cmp == 0 {
 						oldOff++
 					}
 					break
-				} else {
-					// nd > od
-					mergeDash = append(mergeDash, od)
-					oldOff++
 				}
-			}
+			} //end oldOff
+			mergeDash = append(mergeDash, nd)
 		}
 		//
-		for oldOff < ol {
+		for oldOff < oldLen {
 			od := oldDbd.DailyDash[oldOff]
 			mergeDash = append(mergeDash, od)
 			oldOff++
 		}
 		mgrMonDash := &tstock.DashBoardMonth{Mon: dao.dashMon.Mon, DailyDash: mergeDash}
+		common.Logger.Infof("merge data:%s, newLen:%d", mgrMonDash.Mon, len(mgrMonDash.DailyDash))
 		err = SaveMsg(name, mgrMonDash)
 	} else {
 		err = SaveMsg(name, dao.dashMon)
