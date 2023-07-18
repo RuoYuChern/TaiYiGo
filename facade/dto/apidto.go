@@ -1,14 +1,14 @@
 package dto
 
 type CnAdminCmd struct {
-	Opt   string `json:"opt"`
+	Opt   string `json:"opt" binding:"required"`
 	Value string `json:"value"`
 }
 
 type JustifyReq struct {
-	Table string `json:"table"`
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Table string `json:"table" binding:"required"`
+	Key   string `json:"key" binding:"required"`
+	Value string `json:"value" binding:"required"`
 }
 
 type SymbolDaily struct {
@@ -102,12 +102,31 @@ type HotItem struct {
 	Vol     float64 `json:"vol"`
 	HotRate int     `json:"hot"`
 	HotDays int     `json:"hotDays"`
-	LowDay  string  `json:"lowday"`
-	HighDay string  `json:"highday"`
+	LowDay  string  `json:"lowDay"`
+	HighDay string  `json:"highDay"`
 }
 
 type GetHotResponse struct {
 	Code int        `json:"code"`
 	Msg  string     `json:"msg"`
 	Data []*HotItem `json:"data"`
+}
+
+type UserPwdReq struct {
+	Name  string `json:"name" binding:"required"`
+	Pwd   string `json:"pwd" binding:"required"`
+	Noice string `json:"noice" binding:"required"`
+}
+
+type CommonResponse struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data string `json:"data"`
+}
+
+type TradingReq struct {
+	Stock   string  `json:"stock" binding:"required"`
+	Price   float32 `json:"price" binding:"required"`
+	Vol     int     `json:"vol" binding:"required"`
+	OrderId string  `json:"orderId" binding:"required"`
 }

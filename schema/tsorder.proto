@@ -1,0 +1,19 @@
+syntax = "proto3";
+option go_package = "facade/tsorder";
+package tsorder;
+
+message TOrder{
+    string symbol = 1; 
+    string name  = 2;
+    string creatDay = 3;
+    string buyDay = 4;
+    string sellDay = 5;
+    string endDay  = 6;
+    string buyer = 7;
+    string orderId = 8;
+    int32 status = 9;
+    int32 vol = 10;
+    float orderPrice = 11;
+    float buyPrice = 12;
+    float sellPrice = 13;
+}

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,55 +27,6 @@ func gateFilter() gin.HandlerFunc {
 		status := c.Writer.Status()
 		common.Logger.Infof("perf stat: url=[%s], time used=[%d], status=[%d]", c.FullPath(), latency.Milliseconds(), status)
 	}
-}
-
-func getToken(usename string, opendid string) (string, error) {
-	cure := time.Now()
-	c := TaoClaims{
-		usename,
-		opendid,
-		jwt.TimePrecision.String(),
-		jwt.RegisteredClaims{
-			Issuer:    "XianXian",
-			Subject:   "View",
-			Audience:  []string{"Tao"},
-			ID:        opendid,
-			ExpiresAt: jwt.NewNumericDate(cure.Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(cure),
-			NotBefore: jwt.NewNumericDate(cure),
-		},
-	}
-
-	toekn := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
-	ss, err := toekn.SignedString([]byte(common.Conf.Http.Jwt))
-	if err != nil {
-		common.Logger.Infof("Get token error:%s", err.Error())
-		return "", err
-	}
-	return ss, nil
-}
-
-func verifyToken(tokenString string, c *gin.Context) error {
-	if tokenString == common.Conf.Http.Token {
-		return nil
-	}
-	token, err := jwt.ParseWithClaims(tokenString, &TaoClaims{}, func(t *jwt.Token) (interface{}, error) {
-		return []byte(common.Conf.Http.Jwt), nil
-	})
-	if err != nil {
-		common.Logger.Infof("Parse token error:%s", err.Error())
-		return err
-	}
-
-	claims, ok := token.Claims.(*TaoClaims)
-	if !ok {
-		common.Logger.Infof("Parse token error: type error")
-		return errors.New("type error")
-	}
-	c.Set("openId", claims.OpenId)
-	c.Set("Username", claims.Username)
-	return nil
-
 }
 
 func jwtAuthMiddleware(c *gin.Context) {
@@ -132,6 +82,11 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.GET(fmt.Sprintf("%s/hq/get-dash", common.Conf.Http.Prefix), getDashboard)
 	router.GET(fmt.Sprintf("%s/hq/get-up-down", common.Conf.Http.Prefix), getUpDown)
 	router.GET(fmt.Sprintf("%s/hq/get-hot", common.Conf.Http.Prefix), getHot)
+
+	router.POST(fmt.Sprintf("%s/auth/do-login", common.Conf.Http.Prefix), doUserLogin)
+	router.POST(fmt.Sprintf("%s/auth/do-add-user", common.Conf.Http.Prefix), jwtAuthMiddleware, doAddUser)
+
+	router.POST(fmt.Sprintf("%s/trade/do-add-user", common.Conf.Http.Prefix), jwtAuthMiddleware, doTrading)
 
 	router.POST(fmt.Sprintf("%s/load-cn-history", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
 	router.POST(fmt.Sprintf("%s/start-cn-stf", common.Conf.Http.Prefix), jwtAuthMiddleware, startCnSTFFlow)

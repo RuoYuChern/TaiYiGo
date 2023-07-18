@@ -5,12 +5,16 @@ import (
 	"os"
 
 	"github.com/boltdb/bolt"
+	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
 )
 
 var blotDb *bolt.DB
 var (
-	CONF_TABLE        = "conf"
+	CONF_TABLE  = "conf"
+	USER_TABLE  = "user"
+	ORDER_TABLE = "order"
+
 	STF_HISTORY_TABLE = "stf_history"
 	KEY_CNLOADHISTORY = "cn_history_load"
 )
@@ -90,6 +94,66 @@ func SetKeyValue(table string, key string, value string) error {
 			return err
 		}
 		return nil
+	})
+	return err
+}
+
+func CheckExist(table string, key string) (bool, error) {
+	var isExist bool
+	err := blotDb.View(func(tx *bolt.Tx) error {
+		buck := tx.Bucket([]byte(table))
+		if buck == nil {
+			isExist = false
+			return nil
+		}
+		bKey := []byte(key)
+		v := buck.Get(bKey)
+		if v == nil {
+			isExist = false
+			return nil
+		}
+		isExist = true
+		return nil
+	})
+	return isExist, err
+}
+
+func SaveObject(table string, key string, msg proto.Message) error {
+	out, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	err = blotDb.Update(func(tx *bolt.Tx) error {
+		buck, er := tx.CreateBucketIfNotExists([]byte(table))
+		if er != nil {
+			common.Logger.Infof("create bucket %s failed:%s", table, er)
+			return er
+		}
+		bKey := []byte(key)
+		er = buck.Put(bKey, out)
+		if er != nil {
+			common.Logger.Infof("put key:%s, failed:%s", key, er)
+			return er
+		}
+		return nil
+	})
+	return err
+}
+
+func GetObj(table string, key string, msg proto.Message) error {
+	err := blotDb.View(func(tx *bolt.Tx) error {
+		buck := tx.Bucket([]byte(table))
+		if buck == nil {
+			return gIsBEmpty
+		}
+		bKey := []byte(key)
+		v := buck.Get(bKey)
+		if v == nil {
+			return gIsBEmpty
+		}
+		er := proto.Unmarshal(v, msg)
+		return er
 	})
 	return err
 }

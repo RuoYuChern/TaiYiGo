@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"io"
 	"io/fs"
 	"math"
@@ -58,6 +59,16 @@ func MD5Sign(sault string, content string, time string) string {
 	buff.WriteString(content)
 	io.WriteString(wr, buff.String())
 	sign := base64.StdEncoding.EncodeToString(wr.Sum(nil))
+	return sign
+}
+
+func GetMd5(content string, noice string) string {
+	wr := md5.New()
+	buff := bytes.Buffer{}
+	buff.WriteString(noice)
+	buff.WriteString(content)
+	io.WriteString(wr, buff.String())
+	sign := hex.EncodeToString(wr.Sum(nil))
 	return sign
 }
 
