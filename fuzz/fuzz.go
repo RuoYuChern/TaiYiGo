@@ -317,15 +317,15 @@ func testQuery() {
 func testCnShares() {
 	conf := "../config/tao.yaml"
 	common.BaseInit(conf)
-	// dlist, err := infra.QueryCnShareDailyRange("000001.SZ", "20180718", "20180718")
-	// if err != nil {
-	// 	log.Printf("It is error:%s", err)
-	// } else {
-	// 	log.Printf("len:%d", len(dlist))
-	// 	for _, v := range dlist {
-	// 		log.Printf("%+v", v)
-	// 	}
-	// }
+	dlist, err := infra.QueryCnShareDailyRange("000001.SZ", "20180716", "20180718")
+	if err != nil {
+		log.Printf("It is error:%s", err)
+	} else {
+		log.Printf("len:%d", len(dlist))
+		for _, v := range dlist {
+			log.Printf("%+v", v)
+		}
+	}
 
 	// out, err := infra.QueryCnShareBasic("", "L")
 	// if err != nil {
@@ -344,15 +344,15 @@ func testCnShares() {
 	// 	log.Printf("%+v", front)
 	// }
 
-	dailyList, err := infra.GetDailyFromTj("000540.SZ", "20230715", "20230717")
-	if err != nil {
-		log.Printf("It is error:%s", err)
-	} else {
-		log.Printf("len:%d", len(dailyList))
-		for _, v := range dailyList {
-			log.Printf("%+v", v)
-		}
-	}
+	// dailyList, err := infra.GetDailyFromTj("000007.SZ", "20230715", "20230719")
+	// if err != nil {
+	// 	log.Printf("It is error:%s", err)
+	// } else {
+	// 	log.Printf("len:%d", len(dailyList))
+	// 	for _, v := range dailyList {
+	// 		log.Printf("%+v", v)
+	// 	}
+	// }
 
 }
 
