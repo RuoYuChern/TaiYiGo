@@ -17,6 +17,7 @@ var (
 
 	STF_HISTORY_TABLE = "stf_history"
 	KEY_CNLOADHISTORY = "cn_history_load"
+	KEY_DELTA         = "cn_delta_load"
 )
 
 type dbCloseGuid struct {

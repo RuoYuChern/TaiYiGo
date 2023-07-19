@@ -1,6 +1,7 @@
 package brain
 
 import (
+	"strings"
 	"time"
 
 	"taiyigo.com/common"
@@ -21,6 +22,13 @@ type deltaLoadCnActor struct {
 }
 
 func (la loadActor) Action() {
+	today := common.GetDay(common.YYYYMMDD, time.Now())
+	lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_DELTA)
+	if err == nil && strings.Compare(today, lastDay) == 0 {
+		common.Logger.Infof("Delta load has done")
+		return
+	}
+	infra.SetKeyValue(infra.CONF_TABLE, infra.KEY_DELTA, today)
 	var act common.Actor = loadCnBasic{}
 	act.Action()
 	act = deltaLoadCnActor{}

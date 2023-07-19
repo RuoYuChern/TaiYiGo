@@ -53,25 +53,27 @@ func (actor *loadHistoryActor) Action() {
 	}
 	//now := common.GetDay(common.YYYYMMDD, time.Now())
 	now := common.Conf.Quotes.HistoryEnd
-	b, err := infra.CheckAndSet(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY, now)
-	if err != nil {
-		common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
-		return
-	}
-	if !b {
-		common.Logger.Infof("do cmd:%s has done", actor.cmd.Opt)
-		return
+	if actor.cmd.Value != "FORCE" {
+		b, err := infra.CheckAndSet(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY, now)
+		if err != nil {
+			common.Logger.Infof("do cmd:%s is failed:%s", actor.cmd.Opt, err)
+			return
+		}
+		if !b {
+			common.Logger.Infof("do cmd:%s has done", actor.cmd.Opt)
+			return
+		}
 	}
 
 	cnList := &tstock.CnBasicList{}
-	err = infra.GetCnBasic(cnList)
+	err := infra.GetCnBasic(cnList)
 	if err != nil {
 		common.Logger.Infof("GetCnBasic failed:%s", err)
 		return
 	}
 
-	datRang := []yearItems{{"20200101", "20201231"}, {"20210101", "20211231"}, {"20220101", "20221231"}, {"20230101", now}}
-	// datRang := []yearItems{{"20230701", now}}
+	// datRang := []yearItems{{"20200101", "20201231"}, {"20210101", "20211231"}, {"20220101", "20221231"}, {"20230101", now}}
+	datRang := []yearItems{{"20230101", now}}
 	cnShareStatus := make(map[string]string)
 	timeStart := time.Now()
 	for _, v := range datRang {
