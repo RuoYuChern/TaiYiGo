@@ -61,8 +61,8 @@ func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyI
 	params := make(map[string]string)
 	headers := make(map[string]string)
 	params["stock"] = tscode
-	params["startDate"] = startDate
-	params["endDate"] = endDate
+	params["start_date"] = startDate
+	params["end_date"] = endDate
 	timeStr := strconv.FormatInt(time.Now().Unix(), 10)
 	content := strconv.FormatInt(rand.Int63n(1000000000), 36)
 	headers["X-TJ-TIME"] = timeStr
@@ -83,7 +83,7 @@ func GetBasicFromTj() (*list.List, error) {
 	pageNum := 0
 	outList := list.New()
 	for {
-		params["pageNum"] = strconv.Itoa(pageNum)
+		params["page_num"] = strconv.Itoa(pageNum)
 		timeStr := strconv.FormatInt(time.Now().Unix(), 10)
 		content := strconv.FormatInt(rand.Int63n(1000000000), 36)
 		headers["X-TJ-TIME"] = timeStr
@@ -153,7 +153,7 @@ func QueryCnShareBasic(exchange string, listStatus string) (*list.List, error) {
 	return outList, nil
 }
 
-func QueryCnShareDaily(tscode string, tradeDate string) (*CnSharesDaily, error) {
+func QueryCnShareDaily(tscode string, tradeDate string) (*TjDailyInfo, error) {
 	params := make(map[string]any)
 	params["ts_code"] = tscode
 	params["trade_date"] = tradeDate
@@ -191,10 +191,10 @@ func QueryCnShareDaily(tscode string, tradeDate string) (*CnSharesDaily, error) 
 			break
 		}
 	}
-	return dailyOut, nil
+	return ToTjDailyInfo(dailyOut), nil
 }
 
-func QueryCnShareDailyRange(tscode string, startDate string, endDate string) ([]*CnSharesDaily, error) {
+func QueryCnShareDailyRange(tscode string, startDate string, endDate string) ([]*TjDailyInfo, error) {
 	params := make(map[string]any)
 	params["ts_code"] = tscode
 	params["start_date"] = startDate
@@ -212,11 +212,12 @@ func QueryCnShareDailyRange(tscode string, startDate string, endDate string) ([]
 	}
 	data := &rsp.Data
 	if len(data.Items) == 0 {
-		return nil, gIsCnEmpty
+		return nil, nil
 	}
 	vo := make(map[string]any)
-	dailyOut := make([]*CnSharesDaily, len(data.Items))
-	for itIdx, item := range data.Items {
+	dailyOut := make([]*TjDailyInfo, len(data.Items))
+	taiOff := len(data.Items) - 1
+	for _, item := range data.Items {
 		for idx, v := range data.Fields {
 			vo[v] = item[idx]
 		}
@@ -231,7 +232,8 @@ func QueryCnShareDailyRange(tscode string, startDate string, endDate string) ([]
 			common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
 			return nil, nil
 		}
-		dailyOut[itIdx] = dailyVo
+		dailyOut[taiOff] = ToTjDailyInfo(dailyVo)
+		taiOff--
 	}
 	return dailyOut, nil
 }

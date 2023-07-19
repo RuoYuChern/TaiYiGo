@@ -106,3 +106,13 @@ func (tsi *TsIndexData) UnmarshalBinary(data []byte) error {
 	tsi.Len = lwd.Uint32(data[20:])
 	return nil
 }
+
+func PutIntToB(data []byte, u uint32) {
+	lwd := binary.LittleEndian
+	lwd.PutUint32(data, u)
+}
+
+func GetIntFromB(data []byte) uint32 {
+	lwd := binary.LittleEndian
+	return lwd.Uint32(data)
+}

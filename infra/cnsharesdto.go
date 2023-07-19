@@ -65,6 +65,17 @@ type TjCnBasicInfo struct {
 	IsHs       string `json:"is_hs"`
 }
 
+func ToTjDailyInfo(cnDaily *CnSharesDaily) *TjDailyInfo {
+	tjDaily := &TjDailyInfo{Symbol: cnDaily.Symbol, Day: cnDaily.Day, Open: cnDaily.Open, Close: cnDaily.Close, PreClose: cnDaily.PreClose}
+	tjDaily.High = cnDaily.High
+	tjDaily.Low = cnDaily.Low
+	tjDaily.Amount = cnDaily.Amount
+	tjDaily.Vol = cnDaily.Vol
+	tjDaily.PctChg = cnDaily.PctChg
+	tjDaily.Change = cnDaily.Change
+	return tjDaily
+}
+
 func ToCandle(dIt *TjDailyInfo) *tstock.Candle {
 	candle := &tstock.Candle{}
 	period, err := common.ToDay(common.YYYYMMDD, dIt.Day)
@@ -83,4 +94,20 @@ func ToCandle(dIt *TjDailyInfo) *tstock.Candle {
 	candle.PreClose = dIt.PreClose
 	candle.Amount = dIt.Amount
 	return candle
+}
+
+func ToDaily(dIt *TjDailyInfo) *tstock.StockDaily {
+	sdl := &tstock.StockDaily{}
+	sdl.Symbol = dIt.Symbol
+	sdl.TradeDate = dIt.Day
+	sdl.Open = dIt.Open
+	sdl.Close = dIt.Close
+	sdl.PreClose = dIt.PreClose
+	sdl.High = dIt.High
+	sdl.Low = dIt.Low
+	sdl.Change = dIt.Change
+	sdl.PctChg = dIt.PctChg
+	sdl.Amount = dIt.Amount
+	sdl.Vol = dIt.Vol
+	return sdl
 }

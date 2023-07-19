@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
 	"taiyigo.com/facade/tsdb"
 )
@@ -43,6 +44,33 @@ var gtsdbOnce sync.Once
 
 type tsdbGuid struct {
 	common.TItemLife
+}
+
+type TsLogger struct {
+	monOut map[string]*tsDataLog
+}
+
+func OpenTlg() *TsLogger {
+	return &TsLogger{monOut: make(map[string]*tsDataLog)}
+}
+
+func (tlg *TsLogger) Append(day string, msg proto.Message) error {
+	month := common.SubString(day, 0, 6)
+	tdl, ok := tlg.monOut[month]
+	if !ok {
+		tdl = &tsDataLog{}
+		if err := tdl.open(month, os.O_CREATE|os.O_WRONLY); err != nil {
+			return err
+		}
+		tlg.monOut[month] = tdl
+	}
+	return tdl.append(msg)
+}
+
+func (tlg *TsLogger) Close() {
+	for _, tdl := range tlg.monOut {
+		tdl.close()
+	}
 }
 
 func (tsg *tsdbGuid) Close() {

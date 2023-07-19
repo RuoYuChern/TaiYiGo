@@ -11,6 +11,7 @@ import (
 var (
 	UPLIMIT_LEVEL   = 0.095
 	DOWNLIMIT_LEVEL = -0.095
+	DAY_TOP_TOTAL   = 50
 )
 
 type DayBoradCal struct {
@@ -63,7 +64,7 @@ func (ndbc *NameDashBoradCal) Save() {
 }
 
 func newDashBoardV1(day string) *tstock.DashBoardV1 {
-	dbdv := &tstock.DashBoardV1{Day: day, Top20Vol: make([]*tstock.NamedValue, 20)}
+	dbdv := &tstock.DashBoardV1{Day: day, Top20Vol: make([]*tstock.TopSymbol, DAY_TOP_TOTAL)}
 	dbdv.DownLimit = make([]string, 0, 100)
 	dbdv.UpLimit = make([]string, 0, 100)
 	return dbdv
@@ -76,7 +77,7 @@ func (dbc *DayBoradCal) SetTop() {
 		if v == nil {
 			break
 		}
-		dbc.dbdv.Top20Vol[off] = v.(*tstock.NamedValue)
+		dbc.dbdv.Top20Vol[off] = v.(*tstock.TopSymbol)
 		off++
 	}
 }
@@ -97,11 +98,11 @@ func (dbc *DayBoradCal) Cal(day string, symbol string, candle *tstock.Candle) {
 	dbc.dbdv.TotalAmount += candle.Amount
 	dbc.dbdv.TotalVol += float64(candle.Volume)
 	dbc.dbdv.Stocks += 1
-	nv := &tstock.NamedValue{Name: symbol, Value: float64(candle.Volume)}
+	nv := &tstock.TopSymbol{Name: symbol, Vol: float64(candle.Volume), Open: candle.Open, Close: candle.Close}
 	if dbc.hp == nil {
-		dbc.hp = common.NewLp(20, func(a1, a2 any) int {
-			v1 := uint32(a1.(*tstock.NamedValue).Value)
-			v2 := uint32(a2.(*tstock.NamedValue).Value)
+		dbc.hp = common.NewLp(DAY_TOP_TOTAL, func(a1, a2 any) int {
+			v1 := uint32(a1.(*tstock.TopSymbol).Vol)
+			v2 := uint32(a2.(*tstock.TopSymbol).Vol)
 			if v1 < v2 {
 				return -1
 			} else if v1 == v2 {

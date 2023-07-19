@@ -51,6 +51,11 @@ type tsFile struct {
 	flag int
 }
 
+type tsDataLog struct {
+	file *os.File
+	name string
+}
+
 type tsdbFMMap struct {
 	maxSize int64
 	name    string
@@ -304,12 +309,13 @@ func findIdxOff(dir string, ptmd *TsMetaData, value uint64) (int64, error) {
 	idxMen := make([]byte, bufSize)
 	name := fmt.Sprintf(gIDX_FILE_TPL, dir, ptmd.Refblock)
 	tsfm := newMapper(name, gINDEX_FILE_SIZE)
-	defer tsfm.close()
 	if err := tsfm.open(os.O_RDONLY, 0755); err != nil {
 		common.Logger.Infof("open %s failed:%s", name, err)
+		tsfm.close()
 		return 0, err
 	}
 	n, err := tsfm.batchReadAt(int64(ptmd.RefAddr), idxMen)
+	tsfm.close()
 	if err != nil {
 		common.Logger.Infof("read block %d offset = %d failed:%s", ptmd.Refblock, ptmd.RefAddr, err.Error())
 		return 0, err
@@ -323,7 +329,6 @@ func findIdxOff(dir string, ptmd *TsMetaData, value uint64) (int64, error) {
 		common.Logger.Infof("bsfindIdx block %d error:%s", ptmd.Refblock, err.Error())
 		return 0, err
 	}
-
 	return int64(offset), nil
 }
 
@@ -422,17 +427,18 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 		common.Logger.Infof("open %s failed:%s", name, err.Error())
 		return err
 	}
-	defer tsfMap.close()
 
 	bufSize := ptmd.Refitems * uint32(gTID_LEN)
 	idxMen := make([]byte, bufSize)
 	n, err := tsfMap.batchReadAt(int64(ptmd.RefAddr), idxMen)
 	if err != nil {
 		common.Logger.Infof("read block %d offset = %d failed:%s", ptmd.Refblock, ptmd.RefAddr, err.Error())
+		tsfMap.close()
 		return err
 	}
 	if n != int(bufSize) {
 		common.Logger.Infof("read block %d at %d size error:%d != %d", ptmd.Refblock, ptmd.RefAddr, n, bufSize)
+		tsfMap.close()
 		return errors.New("size error")
 	}
 	offset := 0
@@ -440,6 +446,7 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 		offset, err = bsfindIdx(idxMen, n, start)
 		if err != nil {
 			common.Logger.Infof("bsfindIdx block %d error:%s", ptmd.Refblock, err.Error())
+			tsfMap.close()
 			return err
 		}
 	}
@@ -454,10 +461,12 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 		pIdx := &TsIndexData{}
 		if err := pIdx.UnmarshalBinary(itemBuf); err != nil {
 			common.Logger.Infof("block %d UnmarshalBinary failed:%s", ptmd.Refblock, err.Error())
+			tsfMap.close()
 			return err
 		}
 		if pIdx.Timestamp > end {
 			common.Logger.Debugf("block %d is eof", ptmd.Refblock)
+			tsfMap.close()
 			return gIsEof
 		}
 
@@ -468,6 +477,7 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 		}
 
 	}
+	tsfMap.close()
 	return nil
 }
 
@@ -856,12 +866,13 @@ func (tsf *tsFile) write(name string, msg proto.Message) error {
 	if err := tsf.open(tsf.flag, name); err != nil {
 		return err
 	}
-	defer tsf.file.Close()
 	out, err := proto.Marshal(msg)
 	if err != nil {
+		tsf.file.Close()
 		return err
 	}
 	tsf.file.Write(out)
+	tsf.file.Close()
 	return nil
 }
 
@@ -869,13 +880,18 @@ func (tsf *tsFile) read(name string, msg proto.Message) error {
 	if err := tsf.open(tsf.flag, name); err != nil {
 		return err
 	}
-	defer tsf.file.Close()
 	info, err := tsf.file.Stat()
 	if err != nil {
+		tsf.file.Close()
 		return err
+	}
+	if info.Size() == 0 {
+		tsf.file.Close()
+		return errors.New("empty")
 	}
 	in := make([]byte, info.Size())
 	_, err = tsf.file.Read(in)
+	tsf.file.Close()
 	if err != nil {
 		return err
 	}
@@ -893,4 +909,42 @@ func (tsf *tsFile) open(flag int, name string) error {
 	}
 	tsf.file = fout
 	return nil
+}
+
+func (tdg *tsDataLog) open(name string, flag int) error {
+	dir := fmt.Sprintf("%s/dlog", common.Conf.Infra.FsDir)
+	os.MkdirAll(dir, 0755)
+	fname := fmt.Sprintf("%s/%s.dlog", dir, name)
+	fout, err := os.OpenFile(fname, flag, 0755)
+	tdg.name = name
+	if err != nil {
+		return err
+	}
+	tdg.file = fout
+	return nil
+}
+
+func (tdg *tsDataLog) close() {
+	if tdg.file != nil {
+		tdg.file.Close()
+	}
+}
+
+func (tdg *tsDataLog) append(msg proto.Message) error {
+	out, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	bl := uint32(len(out))
+	buf := make([]byte, (bl + 4))
+	PutIntToB(buf, bl)
+	for off := uint32(0); off < bl; off++ {
+		buf[4+off] = out[off]
+	}
+	_, err = tdg.file.Write(buf)
+	if err != nil {
+		common.Logger.Warnf("write file:%s, failed:%s", tdg.name, err)
+	}
+	return err
 }

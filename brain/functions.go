@@ -15,10 +15,11 @@ import (
 )
 
 func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, cnShareStatus map[string]string) (int, error) {
-	limter := ratelimit.New(500, ratelimit.Per(time.Minute))
+	limter := ratelimit.New(400, ratelimit.Per(time.Minute))
 	tsDb := infra.Gettsdb()
 	rangeTotal := 0
 	ndbc := indicators.NewNDbc()
+	tdlg := infra.OpenTlg()
 	for _, cnBasic := range cnList.CnBasicList {
 		cnShareLastDay, err := infra.GetByKey(infra.CONF_TABLE, cnBasic.Symbol)
 		startDay := lowDay
@@ -31,12 +32,16 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 			}
 		}
 		limter.Take()
-		daily, err := infra.GetDailyFromTj(cnBasic.Symbol, startDay, highDay)
+		daily, err := infra.QueryCnShareDailyRange(cnBasic.Symbol, startDay, highDay)
 		if err != nil {
 			common.Logger.Warnf("Load symbol:%s, range[%s,%s],failed:%s", cnBasic.Symbol, startDay, highDay, err)
+			ndbc.Save()
+			tdlg.Close()
 			return 0, err
 		}
-
+		if daily == nil {
+			continue
+		}
 		total := len(daily)
 		rangeTotal += total
 		if total == 0 {
@@ -44,17 +49,21 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 		}
 		tbl := tsDb.OpenAppender(cnBasic.Symbol)
 		for dOff := 0; dOff < total; dOff++ {
-			dailyInfo := &daily[dOff]
+			dailyInfo := daily[dOff]
 			candle := infra.ToCandle(dailyInfo)
 			if candle == nil {
 				common.Logger.Warnf("Load symbol:%s, range[%s,%s],failed", cnBasic.Symbol, startDay, highDay)
 				tsDb.CloseAppender(tbl)
+				ndbc.Save()
+				tdlg.Close()
 				return 0, errors.New("to candle failed")
 			}
 			out, err := proto.Marshal(candle)
 			if err != nil {
 				common.Logger.Warnf("Load symbol:%s, range[%s,%s],failed:%s", cnBasic.Symbol, startDay, highDay, err)
 				tsDb.CloseAppender(tbl)
+				ndbc.Save()
+				tdlg.Close()
 				return 0, err
 			}
 			tsData := &tsdb.TsdbData{Timestamp: candle.Period, Data: out}
@@ -62,13 +71,18 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 			if err != nil {
 				common.Logger.Warnf("Save symbol:%s, range[%s,%s],failed:%s", cnBasic.Symbol, startDay, highDay, err)
 				tsDb.CloseAppender(tbl)
+				ndbc.Save()
+				tdlg.Close()
 				return 0, err
 			}
-			ndbc.Cal(daily[dOff].Day, daily[dOff].Symbol, candle)
-			cnShareStatus[daily[dOff].Symbol] = daily[dOff].Day
+			ndbc.Cal(dailyInfo.Day, dailyInfo.Symbol, candle)
+			sbdl := infra.ToDaily(dailyInfo)
+			tdlg.Append(dailyInfo.Day, sbdl)
+			cnShareStatus[dailyInfo.Symbol] = dailyInfo.Day
 		}
 		tsDb.CloseAppender(tbl)
 	}
 	ndbc.Save()
+	tdlg.Close()
 	return rangeTotal, nil
 }

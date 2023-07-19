@@ -12,16 +12,17 @@ type JustifyReq struct {
 }
 
 type SymbolDaily struct {
-	Day   string  `json:"day"`
-	Open  float64 `json:"open"`
-	Close float64 `json:"close"`
-	High  float64 `json:"high"`
-	Low   float64 `json:"low"`
-	Vol   float64 `json:"vol"`
-	Mtm   float64 `json:"mtn"`
-	Hld   float64 `json:"hld"`
-	LSma  float64 `json:"lsma"`
-	SSma  float64 `json:"ssma"`
+	Day    string  `json:"day"`
+	Open   float64 `json:"open"`
+	Close  float64 `json:"close"`
+	High   float64 `json:"high"`
+	Low    float64 `json:"low"`
+	Vol    float64 `json:"vol"`
+	Mtm    float64 `json:"mtn"`
+	Hld    float64 `json:"hld"`
+	LSma   float64 `json:"lsma"`
+	SSma   float64 `json:"ssma"`
+	FundIn float64 `json:"fundIn"`
 }
 
 type PairDaily struct {
@@ -97,13 +98,12 @@ type UpDownResponse struct {
 }
 
 type HotItem struct {
-	Name    string  `json:"name"`
-	Symbol  string  `json:"symbol"`
-	Vol     float64 `json:"vol"`
-	HotRate int     `json:"hot"`
-	HotDays int     `json:"hotDays"`
-	LowDay  string  `json:"lowDay"`
-	HighDay string  `json:"highDay"`
+	Name   string  `json:"name"`
+	Symbol string  `json:"symbol"`
+	Vol    float64 `json:"vol"`
+	Open   float64 `json:"open"`
+	Close  float64 `json:"close"`
+	Day    string  `json:"day"`
 }
 
 type GetHotResponse struct {

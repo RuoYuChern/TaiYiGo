@@ -3,6 +3,20 @@ option go_package = "facade/tstock";
 package tstock;
 
 
+message StockDaily{
+    string symbol = 1;
+    string tradeDate = 2;
+    double open = 3;
+    double close = 4;
+    double preClose = 5;
+    double high = 6;
+    double low  = 7;
+    double vol = 8;
+    double amount = 9;
+    double pctChg = 10;
+    double change = 11; 
+}
+
 message Candle{
     uint64 period = 1;
     double pcg = 2;
@@ -79,14 +93,16 @@ message StfRecordList{
     repeated StfRecord stfs = 3;
 }
 
-message NamedValue{
+message TopSymbol{
     string name = 1;
-    double value = 2;
+    double open = 2;
+    double close = 3;
+    double vol = 4;
 }
 
 message DashBoardV1{
     string day = 1;
-    repeated NamedValue top20Vol = 2;
+    repeated TopSymbol top20Vol = 2;
     repeated string upLimit = 3;
     repeated string downLimit = 4;
     double totalVol = 5;
