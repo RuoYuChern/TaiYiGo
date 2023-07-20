@@ -3,6 +3,7 @@ package infra
 import (
 	"container/list"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -86,6 +87,7 @@ func (dao *DashBoardDao) Save() {
 		common.Logger.Infof("merge data:%s, newLen:%d", mgrMonDash.Mon, len(mgrMonDash.DailyDash))
 		err = SaveMsg(name, mgrMonDash)
 	} else {
+		common.Logger.Infof("save data:%s, newLen:%d", dao.dashMon.Mon, len(dao.dashMon.DailyDash))
 		err = SaveMsg(name, dao.dashMon)
 	}
 	if err != nil {
@@ -226,7 +228,7 @@ func SaveCnBasic(basics *list.List) error {
 	cnList := &tstock.CnBasicList{Numbers: int32(basics.Len()), CnBasicList: make([]*tstock.CnBasic, basics.Len())}
 	off := 0
 	for front := basics.Front(); front != nil; front = front.Next() {
-		share := front.Value.(*TjCnBasicInfo)
+		share := front.Value.(*CnSharesBasic)
 		cnb := &tstock.CnBasic{}
 		cnb.Symbol = share.Symbol
 		cnb.Name = share.Name
@@ -286,10 +288,54 @@ func RemoveMsg(name string) {
 }
 
 func SaveMsg(name string, msg proto.Message) error {
-	tsf := tsFile{flag: os.O_CREATE}
+	tsf := tsFile{flag: os.O_CREATE | os.O_WRONLY | os.O_TRUNC}
 	err := tsf.write(name, msg)
 	if err != nil {
 		common.Logger.Warnf("SaveMsg:%s failed:%s", name, err)
 	}
+	return err
+}
+
+func GetDLog(name string, cb func(*tstock.StockDaily) error) error {
+	parts := strings.SplitN(name, ".", 2)
+	tdlg := tsDataLog{}
+	if err := tdlg.open(parts[0], os.O_RDONLY); err != nil {
+		common.Logger.Infof("open %s failed:%s", name, err)
+		return err
+	}
+	hb := make([]byte, 4)
+	var err error
+	for {
+		err = tdlg.read(hb)
+		if err != nil {
+			break
+		}
+		ol := int(GetIntFromB(hb))
+		if ol < 0 || ol >= (1<<20) {
+			tdlg.close()
+			err = fmt.Errorf("ol =%d is error", ol)
+			break
+		}
+		obf := make([]byte, ol)
+		err = tdlg.read(obf)
+		if err != nil {
+			break
+		}
+
+		stdl := &tstock.StockDaily{}
+		err = proto.Unmarshal(obf, stdl)
+		if err != nil {
+			break
+		}
+		err = cb(stdl)
+		if err != nil {
+			break
+		}
+	}
+	tdlg.close()
+	if isTargetError(err, io.EOF) {
+		return nil
+	}
+	common.Logger.Infof("Get %s failed:%s", name, err)
 	return err
 }

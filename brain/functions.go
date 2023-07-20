@@ -21,9 +21,9 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 	ndbc := indicators.NewNDbc()
 	tdlg := infra.OpenTlg()
 	for _, cnBasic := range cnList.CnBasicList {
-		cnShareLastDay, err := infra.GetByKey(infra.CONF_TABLE, cnBasic.Symbol)
+		cnShareLastDay, _ := infra.GetByKey(infra.CONF_TABLE, cnBasic.Symbol)
 		startDay := lowDay
-		if err == nil && cnShareLastDay != "" {
+		if cnShareLastDay != "" {
 			if strings.Compare(highDay, cnShareLastDay) <= 0 {
 				continue
 			}

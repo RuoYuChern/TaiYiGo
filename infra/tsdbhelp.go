@@ -451,8 +451,6 @@ func loadIdx(name string, ptmd *TsMetaData, cur *tsdbCursor, start uint64, end u
 		}
 	}
 	items := (offset / int(gTID_LEN))
-	common.Logger.Debugf("Block %d range:[%d,%d]find start %d begin %d of %d", ptmd.Refblock, ptmd.Start, ptmd.End,
-		start, items, ptmd.Refitems)
 	itemBuf := make([]byte, gTID_LEN)
 	for items < int(ptmd.Refitems) {
 		items += 1
@@ -545,6 +543,13 @@ func (tsf *tsdbFile) open(flag int, perm os.FileMode) error {
 	return nil
 }
 
+func (tsf *tsdbFile) flush() {
+	if tsf.wcache != nil {
+		tsf.wcache.flush()
+		tsf.wcache = nil
+	}
+}
+
 func (tsf *tsdbFile) close() {
 	if tsf.wcache != nil {
 		tsf.wcache.flush()
@@ -624,14 +629,14 @@ func (tsf *tsdbFile) append(msg proto.Message) (*TsIndexData, error) {
 	}
 
 	tsf.cacheLen = tsf.cacheLen + dataLen
-	tsf.flush()
+	tsf.flush2()
 	ref := &TsIndexData{Block: uint32(tsf.block), Offset: uint64(tsf.size), Len: uint32(dataLen)}
 	tsf.size += dataLen
 	return ref, nil
 
 }
 
-func (tsf *tsdbFile) flush() {
+func (tsf *tsdbFile) flush2() {
 	if tsf.cacheLen >= gFlush_Size {
 		tsf.file.Sync()
 		tsf.cacheLen = 0
@@ -786,11 +791,15 @@ func (tsfm *tsdbFMMap) append(msg TsData) error {
 	return nil
 }
 
-func (tsfm *tsdbFMMap) close() {
+func (tsfm *tsdbFMMap) flush() {
 	if tsfm.wcache != nil {
 		tsfm.wcache.flush()
 		tsfm.wcache = nil
 	}
+}
+
+func (tsfm *tsdbFMMap) close() {
+	tsfm.flush()
 	if tsfm.file != nil {
 		tsfm.file.Close()
 		tsfm.file = nil
@@ -871,9 +880,9 @@ func (tsf *tsFile) write(name string, msg proto.Message) error {
 		tsf.file.Close()
 		return err
 	}
-	tsf.file.Write(out)
+	_, err = tsf.file.Write(out)
 	tsf.file.Close()
-	return nil
+	return err
 }
 
 func (tsf *tsFile) read(name string, msg proto.Message) error {
@@ -922,6 +931,11 @@ func (tdg *tsDataLog) open(name string, flag int) error {
 	}
 	tdg.file = fout
 	return nil
+}
+
+func (tdg *tsDataLog) read(buf []byte) error {
+	_, err := tdg.file.Read(buf)
+	return err
 }
 
 func (tdg *tsDataLog) close() {

@@ -111,11 +111,29 @@ func GetBasicFromTj() (*list.List, error) {
 	return outList, nil
 }
 
+func toTsCnShare(item []any, fields []string, obj any) error {
+	vo := make(map[string]any)
+	for idx, v := range fields {
+		vo[v] = item[idx]
+	}
+	jstr, err := json.Marshal(vo)
+	if err != nil {
+		common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
+		return err
+	}
+	err = binding.JSON.BindBody(jstr, obj)
+	if err != nil {
+		common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
+		return err
+	}
+	return nil
+}
+
 func QueryCnShareBasic(exchange string, listStatus string) (*list.List, error) {
 	params := make(map[string]any)
 	params["exchange"] = exchange
 	params["list_status"] = listStatus
-	req := &tuShareReq{ApiName: "stock_basic", Token: common.Conf.Quotes.TuToken, Params: params}
+	req := &tuShareReq{ApiName: "stock_basic", Token: common.Conf.Quotes.TuBToKen, Params: params}
 	rsp := tuDailyRsp{}
 	err := doPost(tuShareUrl, req, &rsp)
 	if err != nil {
@@ -131,21 +149,16 @@ func QueryCnShareBasic(exchange string, listStatus string) (*list.List, error) {
 	if len(data.Items) == 0 {
 		return outList, nil
 	}
-	vo := make(map[string]any)
+
 	for _, item := range data.Items {
-		for idx, v := range data.Fields {
-			vo[v] = item[idx]
-		}
-		jstr, err := json.Marshal(vo)
-		if err != nil {
-			common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
-			return nil, nil
-		}
 		basicVo := &CnSharesBasic{}
-		err = binding.JSON.BindBody(jstr, basicVo)
+		err = toTsCnShare(item, data.Fields, basicVo)
 		if err != nil {
 			common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
 			return nil, nil
+		}
+		if basicVo.Status == "" && listStatus != "" {
+			basicVo.Status = listStatus
 		}
 		outList.PushBack(basicVo)
 	}
@@ -172,24 +185,11 @@ func QueryCnShareDaily(tscode string, tradeDate string) (*TjDailyInfo, error) {
 	if len(data.Items) == 0 {
 		return nil, gIsCnEmpty
 	}
-	vo := make(map[string]any)
 	dailyOut := &CnSharesDaily{}
-	for _, item := range data.Items {
-		for idx, v := range data.Fields {
-			vo[v] = item[idx]
-		}
-		jstr, err := json.Marshal(vo)
-		if err != nil {
-			common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
-			return nil, nil
-		}
-		err = binding.JSON.BindBody(jstr, dailyOut)
-		if err != nil {
-			common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
-			return nil, nil
-		} else {
-			break
-		}
+	err = toTsCnShare(data.Items[0], data.Fields, dailyOut)
+	if err != nil {
+		common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
+		return nil, nil
 	}
 	return ToTjDailyInfo(dailyOut), nil
 }
@@ -214,20 +214,11 @@ func QueryCnShareDailyRange(tscode string, startDate string, endDate string) ([]
 	if len(data.Items) == 0 {
 		return nil, nil
 	}
-	vo := make(map[string]any)
 	dailyOut := make([]*TjDailyInfo, len(data.Items))
 	taiOff := len(data.Items) - 1
 	for _, item := range data.Items {
-		for idx, v := range data.Fields {
-			vo[v] = item[idx]
-		}
-		jstr, err := json.Marshal(vo)
-		if err != nil {
-			common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
-			return nil, nil
-		}
 		dailyVo := &CnSharesDaily{}
-		err = binding.JSON.BindBody(jstr, dailyVo)
+		err = toTsCnShare(item, data.Fields, dailyVo)
 		if err != nil {
 			common.Logger.Infof("CnShareDailyRange Marshal failed:%s", err)
 			return nil, nil

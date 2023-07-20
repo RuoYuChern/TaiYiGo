@@ -28,6 +28,9 @@ func (la loadActor) Action() {
 		common.Logger.Infof("Delta load has done")
 		return
 	}
+	if strings.Compare(today, "20230720") == 0 {
+		return
+	}
 	infra.SetKeyValue(infra.CONF_TABLE, infra.KEY_DELTA, today)
 	var act common.Actor = loadCnBasic{}
 	act.Action()
@@ -36,7 +39,7 @@ func (la loadActor) Action() {
 }
 
 func (lcb loadCnBasic) Action() {
-	cnList, err := infra.GetBasicFromTj()
+	cnList, err := infra.QueryCnShareBasic("", "L")
 	if err != nil {
 		common.Logger.Infof("load cnbasic failed:%s", err)
 		return

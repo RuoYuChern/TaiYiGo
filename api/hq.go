@@ -199,3 +199,28 @@ func getHot(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, &rsp)
 }
+
+func getSymbolLastN(c *gin.Context) {
+	stock := c.Query("stock")
+	date := c.Query("date")
+	num := c.Query("num")
+	rsp := dto.GetDailyResponse{}
+	rsp.Code = http.StatusOK
+	rsp.Msg = "OK"
+	total, err := strconv.Atoi(num)
+	if (stock == "") || (date == "") || (err != nil) {
+		rsp.Code = http.StatusBadRequest
+		rsp.Msg = "bad request"
+		c.JSON(http.StatusOK, &rsp)
+		return
+	}
+
+	data, err := getStockNPoint(stock, date, int(total))
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+	} else {
+		rsp.Data = data
+	}
+	c.JSON(http.StatusOK, &rsp)
+}

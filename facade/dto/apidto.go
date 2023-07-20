@@ -2,6 +2,7 @@ package dto
 
 type CnAdminCmd struct {
 	Opt   string `json:"opt" binding:"required"`
+	Cmd   string `json:"cmd" binding:"required"`
 	Value string `json:"value"`
 }
 
@@ -9,6 +10,20 @@ type JustifyReq struct {
 	Table string `json:"table" binding:"required"`
 	Key   string `json:"key" binding:"required"`
 	Value string `json:"value" binding:"required"`
+}
+
+type CnDaily struct {
+	Symbol   string  `json:"symbol"`
+	Day      string  `json:"trade_date"`
+	Open     float64 `json:"open"`
+	Close    float64 `json:"close"`
+	PreClose float64 `json:"pre_close"`
+	High     float64 `json:"high"`
+	Low      float64 `json:"low"`
+	Vol      uint32  `json:"vol"`
+	Amount   float64 `json:"amount"`
+	PctChg   float64 `json:"pct_chg"`
+	Change   float64 `json:"change"`
 }
 
 type SymbolDaily struct {
@@ -110,6 +125,12 @@ type GetHotResponse struct {
 	Code int        `json:"code"`
 	Msg  string     `json:"msg"`
 	Data []*HotItem `json:"data"`
+}
+
+type GetDailyResponse struct {
+	Code int        `json:"code"`
+	Msg  string     `json:"msg"`
+	Data []*CnDaily `json:"data"`
 }
 
 type UserPwdReq struct {

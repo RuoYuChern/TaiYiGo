@@ -65,6 +65,31 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 	return tdata, nil
 }
 
+func getStockNPoint(symbol string, lastDay string, num int) ([]*dto.CnDaily, error) {
+	dataList, err := infra.GetSymbolNPoint(symbol, lastDay, num)
+	if err != nil {
+		common.Logger.Infof("GetSymbolNPoint failed: %s", err)
+		return nil, err
+	}
+	datLen := len(dataList)
+	if datLen == 0 {
+		return nil, errors.New("not found")
+	}
+	data := make([]*dto.CnDaily, datLen)
+	for off := 0; off < datLen; off++ {
+		stk := dataList[off]
+		data[off] = &dto.CnDaily{Symbol: symbol, Open: stk.Open, Close: stk.Close, PreClose: stk.PreClose}
+		data[off].Day = common.GetDay(common.YYYYMMDD, time.UnixMilli(int64(stk.Period)))
+		data[off].High = stk.High
+		data[off].Low = stk.Low
+		data[off].Amount = stk.Amount
+		data[off].Vol = stk.Volume
+		data[off].PctChg = stk.Pcgp
+		data[off].Change = stk.Pcg
+	}
+	return data, nil
+}
+
 func calLatestDash() ([]*dto.DashDaily, error) {
 	dbms := infra.GetLastNMonthDash(12)
 	dailyList := list.New()

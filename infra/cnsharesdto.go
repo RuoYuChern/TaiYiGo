@@ -96,6 +96,26 @@ func ToCandle(dIt *TjDailyInfo) *tstock.Candle {
 	return candle
 }
 
+func ToCandle2(stkd *tstock.StockDaily) *tstock.Candle {
+	candle := &tstock.Candle{}
+	period, err := common.ToDay(common.YYYYMMDD, stkd.TradeDate)
+	if err != nil {
+		common.Logger.Infof("ToDay failed:%s", err)
+		return nil
+	}
+	candle.Period = uint64(period.UnixMilli())
+	candle.Pcg = stkd.Change
+	candle.Pcgp = stkd.PctChg
+	candle.Open = stkd.Open
+	candle.Close = stkd.Close
+	candle.High = stkd.High
+	candle.Low = stkd.Low
+	candle.Volume = uint32(stkd.Vol)
+	candle.PreClose = stkd.PreClose
+	candle.Amount = stkd.Amount
+	return candle
+}
+
 func ToDaily(dIt *TjDailyInfo) *tstock.StockDaily {
 	sdl := &tstock.StockDaily{}
 	sdl.Symbol = dIt.Symbol

@@ -146,6 +146,10 @@ func (tbl *TsdbAppender) open() {
 	common.Logger.Debugf("metaLen:%d, idxLen:%d", tbl.metaLen, tbl.idxLen)
 }
 
+func (tbl *TsdbAppender) GetId() string {
+	return tbl.id
+}
+
 func (tbl *TsdbAppender) close() {
 	if tbl.wdat != nil {
 		//关闭wdat
@@ -172,15 +176,13 @@ func (tbl *TsdbAppender) close() {
 }
 
 func (tbl *TsdbAppender) Append(data *tsdb.TsdbData) error {
-
-	/**目前支持app**/
-	if (tbl.curMeta != nil) && (data.Timestamp < tbl.curMeta.End) {
-		return nil
-	}
-
 	err := tbl.getLastMeta()
 	if isError(err, gIsEmpty) {
 		return err
+	}
+	/**目前支持app**/
+	if (tbl.curMeta != nil) && (data.Timestamp < tbl.curMeta.End) {
+		return nil
 	}
 	// 初始化
 	if tbl.curMeta == nil {
