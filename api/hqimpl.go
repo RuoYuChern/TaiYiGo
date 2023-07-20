@@ -60,7 +60,7 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 		tdata[off-startOff].LSma = lsma.Calculate(off).FormatFloat(2)
 		tdata[off-startOff].SSma = ssma.Calculate(off).FormatFloat(2)
 		tdata[off-startOff].Mtm = mnt.Calculate(off).FormatFloat(2)
-		tdata[off-startOff].FundIn = common.FFloat(float64(candle.Volume)*(candle.Close-candle.Open)/10000, 3)
+		tdata[off-startOff].FundIn = common.FFloat(float64(candle.Volume)*(candle.Close-candle.PreClose)/10000, 3)
 	}
 	return tdata, nil
 }
