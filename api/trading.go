@@ -25,9 +25,9 @@ func tradingStat(c *gin.Context) {
 
 func doTrading(c *gin.Context) {
 	req := dto.TradingReq{}
-	rsp := dto.CommonResponse{Code: http.StatusOK, Msg: "OK"}
+	rsp := &dto.CommonResponse{Code: http.StatusOK, Msg: "OK"}
 	if err := c.BindJSON(&req); err != nil {
-		common.Logger.Infoln("Can not find args")
+		common.Logger.Infof("Can not find args:%+v", req)
 		rsp.Code = http.StatusBadRequest
 		rsp.Msg = "Args error"
 		c.JSON(http.StatusOK, rsp)
@@ -77,4 +77,5 @@ func doTrading(c *gin.Context) {
 	}
 	infra.AddOrder(&order)
 	c.JSON(http.StatusOK, rsp)
+	common.Logger.Infof("doTrading: orderId:%s, symbol:%s, price:%f, vol:%d success", req.OrderId, symbol, req.Price, req.Vol)
 }

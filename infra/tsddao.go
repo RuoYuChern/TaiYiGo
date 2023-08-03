@@ -30,6 +30,13 @@ type memData struct {
 var gmemData *memData
 var gmenOnce sync.Once
 
+func LoadData() {
+	gmenOnce.Do(func() {
+		gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}, orderMap: make(map[string]*tsorder.TOrder)}
+		LoadMemData()
+	})
+}
+
 func (dbd *DashBoardDao) Add(dbdv *tstock.DashBoardV1) {
 	month := common.SubString(dbdv.Day, 0, 6)
 	if dbd.dashMon != nil {
@@ -100,13 +107,16 @@ func (dao *DashBoardDao) Save() {
 }
 
 func LoadMemData() {
-	gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}, orderMap: make(map[string]*tsorder.TOrder)}
 	cnList := tstock.CnBasicList{}
 	err := GetCnBasic(&cnList)
 	if err != nil {
 		common.Logger.Infof("GetCnBasic failed:%s", err)
 		return
 	}
+
+	gmemData.cnShares = make(map[string]*tstock.CnBasic)
+	gmemData.cnSharesNameMap = make(map[string]string)
+
 	for _, v := range cnList.CnBasicList {
 		gmemData.cnShares[v.Symbol] = v
 		gmemData.cnSharesNameMap[v.Name] = v.Symbol
@@ -117,6 +127,7 @@ func LoadMemData() {
 		return
 	}
 
+	gmemData.orderMap = make(map[string]*tsorder.TOrder)
 	for f := orderList.Front(); f != nil; f = f.Next() {
 		order := &tsorder.TOrder{}
 		kv := f.Value.(*KvPair)
@@ -199,7 +210,6 @@ func GetLastNDayDash(day int, up bool) []*tstock.DashBoardV1 {
 }
 
 func GetSymbolName(symbol string) string {
-	gmenOnce.Do(LoadMemData)
 	n, ok := gmemData.cnShares[symbol]
 	if ok {
 		return n.Name
@@ -208,7 +218,6 @@ func GetSymbolName(symbol string) string {
 }
 
 func GetNameSymbol(name string) string {
-	gmenOnce.Do(LoadMemData)
 	symbol, ok := gmemData.cnSharesNameMap[name]
 	if ok {
 		return symbol

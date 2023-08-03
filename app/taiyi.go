@@ -11,6 +11,7 @@ func startAll() {
 	if err := infra.StartDb(); err != nil {
 		panic(err)
 	}
+	infra.LoadData()
 }
 
 func main() {

@@ -88,7 +88,7 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.POST(fmt.Sprintf("%s/auth/do-login", common.Conf.Http.Prefix), doUserLogin)
 	router.POST(fmt.Sprintf("%s/auth/do-add-user", common.Conf.Http.Prefix), jwtAuthMiddleware, doAddUser)
 
-	router.POST(fmt.Sprintf("%s/trade/do-add-user", common.Conf.Http.Prefix), jwtAuthMiddleware, doTrading)
+	router.POST(fmt.Sprintf("%s/trade/do-trading", common.Conf.Http.Prefix), jwtAuthMiddleware, doTrading)
 
 	router.POST(fmt.Sprintf("%s/load-cn-history", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
 	router.POST(fmt.Sprintf("%s/load-cn-basic", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnBasic)
