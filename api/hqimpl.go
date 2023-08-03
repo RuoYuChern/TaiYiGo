@@ -229,7 +229,6 @@ func doGetTradingStat() (*dto.TradingStatDto, error) {
 			if tOrd.Status == dto.ORDER_BUY || tOrd.Status == dto.ORDER_SELL {
 				order.BuyPrice = common.FloatToStr(float64(tOrd.BuyPrice), 2)
 				order.BuyDate = tOrd.BuyDay
-				statDto.Vol += int(tOrd.Vol)
 				statDto.Amount += (float64(tOrd.BuyPrice) * float64(tOrd.Vol))
 				order.Status = "BUY"
 			}
@@ -258,6 +257,7 @@ func doGetTradingStat() (*dto.TradingStatDto, error) {
 			lp.Push(order)
 		}
 		priceMap, err := infra.BatchGetRealPrice(symbols)
+		statDto.Vol = lp.Len()
 		if err != nil {
 			common.Logger.Infof("BatchGetRealPrice failed:%s", err)
 		}
