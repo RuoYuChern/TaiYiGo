@@ -356,6 +356,18 @@ func testCnShares() {
 
 }
 
+func testGetReal() {
+	stockList := []string{"000800.SZ", "600426.SH", "300474.SZ"}
+	priceList, err := infra.BatchGetRealPrice(stockList)
+	if err != nil {
+		log.Printf("erros:%s", err)
+		return
+	}
+	for _, p := range priceList {
+		log.Printf("%+v", p)
+	}
+}
+
 func testHeap() {
 	lcp := func(f any, s any) int {
 		fv := f.(int)
@@ -379,7 +391,7 @@ func testHeap() {
 }
 
 func main() {
-	c := 'A'
+	c := 'R'
 	testBsd()
 	switch c {
 	case 'b':
@@ -396,5 +408,7 @@ func main() {
 		testCnShares()
 	case 'H':
 		testHeap()
+	case 'R':
+		testGetReal()
 	}
 }

@@ -4,8 +4,10 @@ import (
 	"container/list"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin/binding"
@@ -55,6 +57,7 @@ type tjDailyRsp struct {
 
 var (
 	tuShareUrl = "http://api.tushare.pro"
+	sinaUrl    = "http://hq.sinajs.cn"
 )
 
 func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyInfo, error) {
@@ -227,4 +230,87 @@ func QueryCnShareDailyRange(tscode string, startDate string, endDate string) ([]
 		taiOff--
 	}
 	return dailyOut, nil
+}
+
+func BatchGetRealPrice(symbols []string) (map[string]*CnStockPrice, error) {
+	var buf strings.Builder
+	for _, v := range symbols {
+		if buf.Len() > 0 {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(toSinaSymbol(v))
+	}
+	realUrl := fmt.Sprintf("%s/list=%s", sinaUrl, buf.String())
+	headers := make(map[string]string)
+	headers["Referer"] = "http://finance.sina.com.cn"
+	body, err := doGet2(realUrl, headers)
+	if err != nil {
+		return nil, err
+	}
+	values := strings.ReplaceAll(string(body), "\n", "")
+	valueList := strings.Split(values, ";")
+	priceMap := make(map[string]*CnStockPrice)
+	for _, v := range valueList {
+		if v == "" {
+			continue
+		}
+		price, err := toSinaVo(v)
+		if err != nil {
+			return nil, err
+		}
+		priceMap[price.Symbol] = price
+	}
+	return priceMap, nil
+}
+
+func toSinaVo(value string) (*CnStockPrice, error) {
+	pos := strings.Index(value, "\"")
+	end := strings.LastIndex(value, "\"")
+	if pos < 0 || end < 0 {
+
+		return nil, errors.New("pos or end < 0")
+	}
+
+	valueList := strings.Split(common.SubString(value, pos+1, end), ",")
+	price := &CnStockPrice{}
+	price.Name = valueList[0]
+	price.Symbol = fromSinaSymbol(value)
+	price.Open, _ = strconv.ParseFloat(valueList[1], 64)
+	price.PreClose, _ = strconv.ParseFloat(valueList[2], 64)
+	price.CurePrice, _ = strconv.ParseFloat(valueList[3], 64)
+	price.High, _ = strconv.ParseFloat(valueList[4], 64)
+	price.Low, _ = strconv.ParseFloat(valueList[5], 64)
+	price.Date = strings.ReplaceAll(valueList[30], "-", "")
+	price.Time = valueList[31]
+	return price, nil
+}
+
+func toSinaSymbol(symbol string) string {
+	subStr := common.SubString(symbol, 0, len(symbol)-3)
+	if strings.HasSuffix(symbol, ".SZ") {
+		return fmt.Sprintf("sz%s", subStr)
+	} else if strings.HasSuffix(symbol, ".SH") {
+		return fmt.Sprintf("sh%s", subStr)
+	} else if strings.HasSuffix(symbol, ".BJ") {
+		return fmt.Sprintf("bj%s", subStr)
+	}
+	return symbol
+}
+
+func fromSinaSymbol(symbol string) string {
+	pos := strings.Index(symbol, "hq_str_")
+	end := strings.Index(symbol, "=")
+	if pos < 0 || end < 0 {
+		return ""
+	}
+	pos += len("hq_str_")
+	ts := common.SubString(symbol, pos, end)
+	if strings.HasPrefix(ts, "sz") {
+		return fmt.Sprintf("%s.SZ", common.PreSubString(ts, 2))
+	} else if strings.HasPrefix(ts, "sh") {
+		return fmt.Sprintf("%s.SH", common.PreSubString(ts, 2))
+	} else if strings.HasPrefix(ts, "bj") {
+		return fmt.Sprintf("%s.BJ", common.PreSubString(ts, 2))
+	}
+	return ""
 }

@@ -10,7 +10,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
+	"taiyigo.com/facade/dto"
 	"taiyigo.com/facade/tsdb"
+	"taiyigo.com/facade/tsorder"
 	"taiyigo.com/facade/tstock"
 )
 
@@ -21,6 +23,8 @@ type DashBoardDao struct {
 type memData struct {
 	cnShares        map[string]*tstock.CnBasic
 	cnSharesNameMap map[string]string
+	orderMap        map[string]*tsorder.TOrder
+	lock            sync.Mutex
 }
 
 var gmemData *memData
@@ -96,7 +100,7 @@ func (dao *DashBoardDao) Save() {
 }
 
 func LoadMemData() {
-	gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}}
+	gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}, orderMap: make(map[string]*tsorder.TOrder)}
 	cnList := tstock.CnBasicList{}
 	err := GetCnBasic(&cnList)
 	if err != nil {
@@ -106,6 +110,22 @@ func LoadMemData() {
 	for _, v := range cnList.CnBasicList {
 		gmemData.cnShares[v.Symbol] = v
 		gmemData.cnSharesNameMap[v.Name] = v.Symbol
+	}
+	orderList, err := Scan(ORDER_TABLE)
+	if err != nil {
+		common.Logger.Infof("Scan %s, failed:%s", ORDER_TABLE, err)
+		return
+	}
+
+	for f := orderList.Front(); f != nil; f = f.Next() {
+		order := &tsorder.TOrder{}
+		kv := f.Value.(*KvPair)
+		err = proto.Unmarshal(kv.Value, order)
+		if err != nil {
+			common.Logger.Infof("Unmarshal %s, failed:%s", kv.Key, err)
+			continue
+		}
+		gmemData.orderMap[order.OrderId] = order
 	}
 }
 
@@ -194,6 +214,48 @@ func GetNameSymbol(name string) string {
 		return symbol
 	}
 	return ""
+}
+
+func AddOrder(order *tsorder.TOrder) {
+	gmemData.lock.Lock()
+	gmemData.orderMap[order.OrderId] = order
+	gmemData.lock.Unlock()
+}
+
+func GetOrder(orderId string) *tsorder.TOrder {
+	gmemData.lock.Lock()
+	order, ok := gmemData.orderMap[orderId]
+	gmemData.lock.Unlock()
+	if ok {
+		return order
+	} else {
+		return nil
+	}
+}
+
+func GetOrdersByYear(year string) (*list.List, error) {
+	orders := list.New()
+	gmemData.lock.Lock()
+	for _, v := range gmemData.orderMap {
+		if !strings.HasPrefix(v.CreatDay, year) {
+			continue
+		}
+		orders.PushBack(v)
+	}
+	gmemData.lock.Unlock()
+	return orders, nil
+}
+
+func GetUnFinishOrders() *list.List {
+	orders := list.New()
+	gmemData.lock.Lock()
+	for _, v := range gmemData.orderMap {
+		if v.Status == dto.ORDER_IDLE || v.Status == dto.ORDER_BUY {
+			orders.PushBack(v)
+		}
+	}
+	gmemData.lock.Unlock()
+	return orders
 }
 
 func GetSymbolNPoint(symbol, date string, n int) ([]*tstock.Candle, error) {

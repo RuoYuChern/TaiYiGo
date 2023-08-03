@@ -87,6 +87,11 @@ func GetTodayNHour() int {
 	return now.Hour()
 }
 
+func GetTodayHAndM() (int, int) {
+	now := time.Now()
+	return now.Hour(), now.Minute()
+}
+
 func FFloat(f float64, decimal int) float64 {
 	dd := float64(1)
 	if decimal > 0 {
@@ -97,6 +102,15 @@ func FFloat(f float64, decimal int) float64 {
 	return fv
 }
 
+func FloatToStr(f float64, decimal int) string {
+	dd := float64(1)
+	if decimal > 0 {
+		dd = math.Pow10(decimal)
+	}
+	res := strconv.FormatFloat(math.Trunc(f*dd)/dd, 'f', -1, 64)
+	return res
+}
+
 func SubString(source string, start int, end int) string {
 	length := len(source)
 	if (start == 0) && (end == length) {
@@ -105,6 +119,14 @@ func SubString(source string, start int, end int) string {
 
 	var r = []rune(source)
 	return string(r[start:end])
+}
+
+func PreSubString(source string, start int) string {
+	if start == 0 {
+		return source
+	}
+	var r = []rune(source)
+	return string(r[start:])
 }
 
 func GetFileList(dir string, sufix string, exclude string, size int) (*list.List, error) {

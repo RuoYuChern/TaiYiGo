@@ -65,6 +65,18 @@ type TjCnBasicInfo struct {
 	IsHs       string `json:"is_hs"`
 }
 
+type CnStockPrice struct {
+	Symbol    string  `json:"symbol"`
+	Name      string  `json:"name"`
+	Open      float64 `json:"open"`
+	PreClose  float64 `json:"preClose"`
+	CurePrice float64 `json:"curePrice"`
+	High      float64 `json:"high"`
+	Low       float64 `json:"low"`
+	Date      string  `json:"date"`
+	Time      string  `json:"time"`
+}
+
 func ToTjDailyInfo(cnDaily *CnSharesDaily) *TjDailyInfo {
 	tjDaily := &TjDailyInfo{Symbol: cnDaily.Symbol, Day: cnDaily.Day, Open: cnDaily.Open, Close: cnDaily.Close, PreClose: cnDaily.PreClose}
 	tjDaily.High = cnDaily.High

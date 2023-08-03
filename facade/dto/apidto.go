@@ -151,3 +151,33 @@ type TradingReq struct {
 	Vol     int     `json:"vol" binding:"required"`
 	OrderId string  `json:"orderId" binding:"required"`
 }
+
+type TradingDto struct {
+	Name       string `json:"name"`
+	Symbol     string `json:"symbol"`
+	OrderPrice string `json:"orderPrice"`
+	BuyPrice   string `json:"buyPrice"`
+	SellPrice  string `json:"sellPrice"`
+	CurePrice  string `json:"price"`
+	Status     string `json:"status"`
+	OrderDate  string `json:"orderDate"`
+	BuyDate    string `json:"buyDate"`
+	SellDate   string `json:"sellDate"`
+	Flag       string `json:"flag"`
+}
+
+type TradingStatDto struct {
+	Vol           int           `json:"vol"`
+	Amount        float64       `json:"amount"`
+	Pnl           float64       `json:"pnl"`
+	FailedOrders  int           `json:"failed"`
+	SuccessOrders int           `json:"success"`
+	CancelOrders  int           `json:"cancel"`
+	Orders        []*TradingDto `json:"orders"`
+}
+
+type TradingStatRsp struct {
+	Code int             `json:"code"`
+	Msg  string          `json:"msg"`
+	Data *TradingStatDto `json:"data"`
+}

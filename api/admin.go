@@ -46,7 +46,7 @@ func adminCommond(c *gin.Context) {
 	}
 	c.String(http.StatusOK, "Commond submitted")
 	if cmd.Cmd == "mstf" {
-		brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &brain.MergeSTF{})
+		brain.GetBrain().Subscript(brain.TOPIC_STF, &brain.MergeSTF{})
 	} else if cmd.Cmd == "mgall" {
 		brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &brain.MergeAll{})
 	} else if cmd.Cmd == "mstat" {

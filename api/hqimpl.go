@@ -4,10 +4,12 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"taiyigo.com/common"
 	"taiyigo.com/facade/dto"
+	"taiyigo.com/facade/tsorder"
 	"taiyigo.com/facade/tstock"
 	"taiyigo.com/indicators"
 	"taiyigo.com/infra"
@@ -194,4 +196,87 @@ func getLatestHot() ([]*dto.HotItem, error) {
 		}
 	}
 	return data, nil
+}
+
+func doGetTradingStat() (*dto.TradingStatDto, error) {
+	year := common.GetYear(time.Now())
+	orders, err := infra.GetOrdersByYear(year)
+	if err != nil {
+		return nil, err
+	}
+	statDto := &dto.TradingStatDto{Orders: make([]*dto.TradingDto, orders.Len())}
+	if orders.Len() > 0 {
+		lp := common.NewLp(orders.Len(), func(a1, a2 any) int {
+			o1 := a1.(*dto.TradingDto)
+			o2 := a2.(*dto.TradingDto)
+			return strings.Compare(o1.OrderDate, o2.OrderDate)
+		})
+
+		symbols := make([]string, 0)
+		for f := orders.Front(); f != nil; f = f.Next() {
+			order := &dto.TradingDto{}
+			tOrd := f.Value.(*tsorder.TOrder)
+			order.Name = tOrd.Name
+			order.Symbol = tOrd.Symbol
+			order.OrderPrice = common.FloatToStr(float64(tOrd.OrderPrice), 2)
+			order.OrderDate = tOrd.CreatDay
+
+			if tOrd.Status == dto.ORDER_BUY || tOrd.Status == dto.ORDER_IDLE {
+				order.Status = "IDLE"
+				symbols = append(symbols, tOrd.Symbol)
+			}
+
+			if tOrd.Status == dto.ORDER_BUY || tOrd.Status == dto.ORDER_SELL {
+				order.BuyPrice = common.FloatToStr(float64(tOrd.BuyPrice), 2)
+				order.BuyDate = tOrd.BuyDay
+				statDto.Vol += int(tOrd.Vol)
+				statDto.Amount += (float64(tOrd.BuyPrice) * float64(tOrd.Vol))
+				order.Status = "BUY"
+			}
+
+			if tOrd.Status == dto.ORDER_SELL {
+				order.SellPrice = common.FloatToStr(float64(tOrd.SellPrice), 2)
+				order.SellDate = tOrd.SellDay
+				order.Status = "SELL"
+				diff := (tOrd.SellPrice - tOrd.BuyPrice)
+				statDto.Pnl += float64(diff * float32(tOrd.Vol))
+				if diff > 0 {
+					order.Flag = "+"
+					statDto.SuccessOrders += 1
+				} else if diff < 0 {
+					order.Flag = "-"
+					statDto.FailedOrders += 1
+				} else {
+					order.Flag = "="
+				}
+			}
+
+			if tOrd.Status == dto.ORDER_CANCLE {
+				order.Status = "CANCLE"
+				statDto.CancelOrders += 1
+			}
+			lp.Push(order)
+		}
+		priceMap, err := infra.BatchGetRealPrice(symbols)
+		if err != nil {
+			common.Logger.Infof("BatchGetRealPrice failed:%s", err)
+		}
+		off := orders.Len()
+		for {
+			t := lp.Top()
+			if t == nil {
+				break
+			}
+			ord := t.(*dto.TradingDto)
+			if priceMap != nil {
+				price, ok := priceMap[ord.Symbol]
+				if ok {
+					ord.CurePrice = common.FloatToStr(price.CurePrice, 2)
+				}
+			}
+			statDto.Orders[off-1] = ord
+			off -= 1
+		}
+	}
+	return statDto, nil
 }

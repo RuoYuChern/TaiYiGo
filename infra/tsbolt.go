@@ -1,6 +1,7 @@
 package infra
 
 import (
+	"container/list"
 	"fmt"
 	"os"
 
@@ -19,6 +20,11 @@ var (
 	KEY_CNLOADHISTORY = "cn_history_load"
 	KEY_DELTA         = "cn_delta_load"
 )
+
+type KvPair struct {
+	Key   string
+	Value []byte
+}
 
 type dbCloseGuid struct {
 	common.TItemLife
@@ -61,6 +67,26 @@ func GetByKey(table string, key string) (string, error) {
 	return value, err
 }
 
+func Scan(table string) (*list.List, error) {
+	valueList := list.New()
+	err := blotDb.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(table))
+		if b == nil {
+			return fmt.Errorf("table=%s is not exist", table)
+		}
+		b.ForEach(func(k, v []byte) error {
+			valueList.PushBack(&KvPair{Key: string(k), Value: v})
+			return nil
+		})
+		return nil
+	})
+	if err != nil {
+		common.Logger.Infof("scan talbe %s error:%s", table, err)
+		return nil, err
+	}
+	return valueList, nil
+}
+
 func BatchSetKeyValue(table string, values map[string]string) error {
 	err := blotDb.Update(func(tx *bolt.Tx) error {
 		buck, err := tx.CreateBucketIfNotExists([]byte(table))
@@ -100,7 +126,10 @@ func SetKeyValue(table string, key string, value string) error {
 }
 
 func CheckExist(table string, key string) (bool, error) {
-	var isExist bool
+	var isExist bool = false
+	if GetOrder(key) != nil {
+		return true, nil
+	}
 	err := blotDb.View(func(tx *bolt.Tx) error {
 		buck := tx.Bucket([]byte(table))
 		if buck == nil {

@@ -83,6 +83,7 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.GET(fmt.Sprintf("%s/hq/get-up-down", common.Conf.Http.Prefix), getUpDown)
 	router.GET(fmt.Sprintf("%s/hq/get-hot", common.Conf.Http.Prefix), getHot)
 	router.GET(fmt.Sprintf("%s/hq/get-symbol-n", common.Conf.Http.Prefix), getSymbolLastN)
+	router.GET(fmt.Sprintf("%s/trade/get-trading-stat", common.Conf.Http.Prefix), tradingStat)
 
 	router.POST(fmt.Sprintf("%s/auth/do-login", common.Conf.Http.Prefix), doUserLogin)
 	router.POST(fmt.Sprintf("%s/auth/do-add-user", common.Conf.Http.Prefix), jwtAuthMiddleware, doAddUser)

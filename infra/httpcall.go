@@ -48,6 +48,29 @@ func (hc *httpConnector) Close() {
 
 }
 
+func doGet2(realUrl string, hearder map[string]string) ([]byte, error) {
+	req, err := http.NewRequest("GET", realUrl, nil)
+	if err != nil {
+		common.Logger.Warnf("NewRequest:%s", err.Error())
+		return nil, err
+	}
+	for k, v := range hearder {
+		req.Header.Add(k, v)
+	}
+	rsp, err := doRetry(req)
+	if err != nil {
+		common.Logger.Warnf("Do Request err:%s", err.Error())
+		return nil, err
+	}
+	defer rsp.Body.Close()
+	body, err := io.ReadAll(rsp.Body)
+	if err != nil {
+		common.Logger.Warnf("Read Request err:%s", err.Error())
+		return nil, err
+	}
+	return body, nil
+}
+
 func doGet(baseUrl string, path string, params map[string]string, hearder map[string]string, out any) error {
 	base, err := url.Parse(baseUrl)
 	if err != nil {

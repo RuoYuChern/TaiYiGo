@@ -11,6 +11,18 @@ import (
 	"taiyigo.com/infra"
 )
 
+func tradingStat(c *gin.Context) {
+	rsp := &dto.TradingStatRsp{Code: http.StatusOK, Msg: "OK"}
+	data, err := doGetTradingStat()
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+	} else {
+		rsp.Data = data
+	}
+	c.JSON(http.StatusOK, rsp)
+}
+
 func doTrading(c *gin.Context) {
 	req := dto.TradingReq{}
 	rsp := dto.CommonResponse{Code: http.StatusOK, Msg: "OK"}
@@ -49,7 +61,10 @@ func doTrading(c *gin.Context) {
 		return
 	}
 
-	order := tsorder.TOrder{Name: req.Stock, OrderId: req.OrderId, OrderPrice: req.Price, Vol: int32(req.Vol), Buyer: nickName, Status: 0}
+	if req.Vol <= 0 {
+		req.Vol = 200
+	}
+	order := tsorder.TOrder{Name: req.Stock, OrderId: req.OrderId, OrderPrice: req.Price, Vol: int32(req.Vol), Buyer: nickName, Status: dto.ORDER_IDLE}
 	order.CreatDay = common.GetDay(common.YYYYMMDD, time.Now())
 	order.Symbol = symbol
 	err := infra.SaveObject(infra.ORDER_TABLE, req.OrderId, &order)
@@ -60,5 +75,6 @@ func doTrading(c *gin.Context) {
 		c.JSON(http.StatusOK, rsp)
 		return
 	}
+	infra.AddOrder(&order)
 	c.JSON(http.StatusOK, rsp)
 }
