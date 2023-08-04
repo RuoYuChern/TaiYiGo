@@ -28,9 +28,6 @@ func (la loadActor) Action() {
 		common.Logger.Infof("Delta load has done")
 		return
 	}
-	if strings.Compare(today, "20230720") == 0 {
-		return
-	}
 	infra.SetKeyValue(infra.CONF_TABLE, infra.KEY_DELTA, today)
 	var act common.Actor = loadCnBasic{}
 	act.Action()

@@ -19,6 +19,10 @@ var (
 	MAX_GET_LEN  = 300
 	MAX_DAYS_LEN = 200
 	WAN          = 10000.0
+	SZ           = "sz399001"
+	SH           = "sh000001"
+	SZ_300       = "sz399300"
+	HS_300       = "sh000300"
 )
 
 func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
@@ -92,7 +96,7 @@ func getStockNPoint(symbol string, lastDay string, num int) ([]*dto.CnDaily, err
 	return data, nil
 }
 
-func calLatestDash() ([]*dto.DashDaily, error) {
+func calLatestDash() (*dto.DashData, error) {
 	dbms := infra.GetLastNMonthDash(12)
 	dailyList := list.New()
 	totalMon := 0
@@ -126,7 +130,8 @@ func calLatestDash() ([]*dto.DashDaily, error) {
 	if size > MAX_DAYS_LEN {
 		size = MAX_DAYS_LEN
 	}
-	data := make([]*dto.DashDaily, 0, size)
+	data := &dto.DashData{}
+	daily := make([]*dto.DashDaily, 0, size)
 	for f := dailyList.Front(); f != nil; f = f.Next() {
 		dbm := f.Value.(*tstock.DashBoardMonth)
 		for _, dItem := range dbm.DailyDash {
@@ -151,9 +156,29 @@ func calLatestDash() ([]*dto.DashDaily, error) {
 				totalStocks = 1
 			}
 			dto.Mood = int((dto.UpStocks * 100) / totalStocks)
-			data = append(data, dto)
+			daily = append(daily, dto)
 		}
 	}
+	data.Daily = daily
+	hq := infra.GetKDataCache(SZ)
+	if hq != nil {
+		data.SZDaily = hq.Data
+	} else {
+		data.SZDaily = make([]*dto.CnStockKData, 0)
+	}
+	hq = infra.GetKDataCache(SH)
+	if hq != nil {
+		data.SHDaily = hq.Data
+	} else {
+		data.SHDaily = make([]*dto.CnStockKData, 0)
+	}
+	hq = infra.GetKDataCache(HS_300)
+	if hq != nil {
+		data.HSDaily = hq.Data
+	} else {
+		data.HSDaily = make([]*dto.CnStockKData, 0)
+	}
+
 	return data, nil
 }
 
@@ -261,7 +286,7 @@ func doGetTradingStat() (*dto.TradingStatDto, error) {
 		if err != nil {
 			common.Logger.Infof("BatchGetRealPrice failed:%s", err)
 		}
-		off := orders.Len()
+		off := lp.Len()
 		for {
 			t := lp.Top()
 			if t == nil {
@@ -271,7 +296,7 @@ func doGetTradingStat() (*dto.TradingStatDto, error) {
 			if priceMap != nil {
 				price, ok := priceMap[ord.Symbol]
 				if ok {
-					ord.CurePrice = common.FloatToStr(price.CurePrice, 2)
+					ord.CurePrice = common.FloatToStr(float64(price.CurePrice), 2)
 				}
 			}
 			statDto.Orders[off-1] = ord

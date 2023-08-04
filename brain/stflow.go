@@ -64,13 +64,15 @@ func doBuy(tOrd *tsorder.TOrder, priceMap map[string]*infra.CnStockPrice) {
 		common.Logger.Infof("Find none such price:%s", tOrd.Symbol)
 	} else {
 		highPrice := tOrd.OrderPrice * 1.05
-		if price.CurePrice <= float64(highPrice) {
+		if price.CurePrice <= highPrice {
 			tOrd.Status = dto.ORDER_BUY
 			tOrd.BuyDay = common.GetDay(common.YYYYMMDD, time.Now())
 			tOrd.BuyPrice = float32(price.CurePrice)
 			infra.SaveObject(infra.ORDER_TABLE, tOrd.OrderId, tOrd)
 			common.Logger.Infof("OrderId:%s, Symbol:%s, Buy Price:%f, on Day:%s", tOrd.OrderId, tOrd.Symbol, tOrd.BuyPrice, tOrd.BuyDay)
 			return
+		} else {
+			common.Logger.Infof("OrderId:%s, Symbol:%s, orderprice:%f, curePrice:%f, highPrice:%f", tOrd.OrderId, tOrd.Symbol, tOrd.OrderPrice, price.CurePrice, highPrice)
 		}
 	}
 	diff := time.Since(orderDay)
@@ -91,7 +93,7 @@ func doSell(tOrd *tsorder.TOrder, priceMap map[string]*infra.CnStockPrice) {
 		return
 	}
 	lowPrice := tOrd.BuyPrice * 1.20
-	if float64(lowPrice) <= price.CurePrice {
+	if lowPrice <= price.CurePrice {
 		tOrd.Status = dto.ORDER_SELL
 		tOrd.SellDay = common.GetDay(common.YYYYMMDD, time.Now())
 		tOrd.SellPrice = float32(price.CurePrice)

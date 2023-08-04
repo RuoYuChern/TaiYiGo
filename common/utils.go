@@ -102,6 +102,11 @@ func FFloat(f float64, decimal int) float64 {
 	return fv
 }
 
+func StrToF32(value string) float32 {
+	f, _ := strconv.ParseFloat(value, 32)
+	return float32(f)
+}
+
 func FloatToStr(f float64, decimal int) string {
 	dd := float64(1)
 	if decimal > 0 {

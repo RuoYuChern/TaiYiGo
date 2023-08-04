@@ -23,7 +23,7 @@ func getSymbolTrend(c *gin.Context) {
 		c.String(http.StatusNotFound, "Not found")
 		return
 	}
-	rsp := dto.SymbolTrendResponse{}
+	rsp := &dto.SymbolTrendResponse{}
 	data, err := calSymbolTrend(symbol)
 	if err != nil {
 		rsp.Code = http.StatusInternalServerError
@@ -33,7 +33,7 @@ func getSymbolTrend(c *gin.Context) {
 		rsp.Msg = "OK"
 		rsp.Data = data
 	}
-	c.JSON(http.StatusOK, &rsp)
+	c.JSON(http.StatusOK, rsp)
 }
 
 func getSymbolPairTrend(c *gin.Context) {
@@ -51,14 +51,14 @@ func getSymbolPairTrend(c *gin.Context) {
 		return
 	}
 
-	rsp := dto.PaireSResponse{}
+	rsp := &dto.PaireSResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
 	fdata, err := calSymbolTrend(fsym)
 	if err != nil {
 		rsp.Code = http.StatusInternalServerError
 		rsp.Msg = err.Error()
-		c.JSON(http.StatusOK, &rsp)
+		c.JSON(http.StatusOK, rsp)
 		return
 	}
 
@@ -66,7 +66,7 @@ func getSymbolPairTrend(c *gin.Context) {
 	if err != nil {
 		rsp.Code = http.StatusInternalServerError
 		rsp.Msg = err.Error()
-		c.JSON(http.StatusOK, &rsp)
+		c.JSON(http.StatusOK, rsp)
 		return
 	}
 
@@ -85,7 +85,7 @@ func getSymbolPairTrend(c *gin.Context) {
 	if (firstOff >= firstLen) || (secondOff >= secondLen) {
 		rsp.Code = http.StatusNoContent
 		rsp.Msg = err.Error()
-		c.JSON(http.StatusOK, &rsp)
+		c.JSON(http.StatusOK, rsp)
 		return
 	}
 	dataLen := (firstLen - firstOff)
@@ -108,7 +108,7 @@ func getSymbolPairTrend(c *gin.Context) {
 
 	}
 
-	c.JSON(http.StatusOK, &rsp)
+	c.JSON(http.StatusOK, rsp)
 }
 
 func getStfRecord(c *gin.Context) {
@@ -132,7 +132,7 @@ func getStfRecord(c *gin.Context) {
 		startOff = startOff * pageSize
 	}
 
-	rsp := dto.StfResponse{}
+	rsp := &dto.StfResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
 	rsp.Data = make([]*dto.StfItem, 0, len(stfRecord.Stfs))
@@ -155,11 +155,11 @@ func getStfRecord(c *gin.Context) {
 			break
 		}
 	}
-	c.JSON(http.StatusOK, &rsp)
+	c.JSON(http.StatusOK, rsp)
 }
 
 func getDashboard(c *gin.Context) {
-	rsp := dto.DashDailyResponse{}
+	rsp := &dto.DashDailyResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
 	data, err := calLatestDash()
@@ -169,11 +169,11 @@ func getDashboard(c *gin.Context) {
 	} else {
 		rsp.Data = data
 	}
-	c.JSON(http.StatusOK, &rsp)
+	c.JSON(http.StatusOK, rsp)
 }
 
 func getUpDown(c *gin.Context) {
-	rsp := dto.UpDownResponse{}
+	rsp := &dto.UpDownResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
 	data, err := getLastUpDown()
@@ -183,11 +183,11 @@ func getUpDown(c *gin.Context) {
 	} else {
 		rsp.Data = data
 	}
-	c.JSON(http.StatusOK, &rsp)
+	c.JSON(http.StatusOK, rsp)
 }
 
 func getHot(c *gin.Context) {
-	rsp := dto.GetHotResponse{}
+	rsp := &dto.GetHotResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
 	data, err := getLatestHot()
@@ -197,21 +197,21 @@ func getHot(c *gin.Context) {
 	} else {
 		rsp.Data = data
 	}
-	c.JSON(http.StatusOK, &rsp)
+	c.JSON(http.StatusOK, rsp)
 }
 
 func getSymbolLastN(c *gin.Context) {
 	stock := c.Query("stock")
 	date := c.Query("date")
 	num := c.Query("num")
-	rsp := dto.GetDailyResponse{}
+	rsp := &dto.GetDailyResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
 	total, err := strconv.Atoi(num)
 	if (stock == "") || (date == "") || (err != nil) {
 		rsp.Code = http.StatusBadRequest
 		rsp.Msg = "bad request"
-		c.JSON(http.StatusOK, &rsp)
+		c.JSON(http.StatusOK, rsp)
 		return
 	}
 
@@ -222,5 +222,47 @@ func getSymbolLastN(c *gin.Context) {
 	} else {
 		rsp.Data = data
 	}
-	c.JSON(http.StatusOK, &rsp)
+	c.JSON(http.StatusOK, rsp)
+}
+
+func getCnRtPrice(c *gin.Context) {
+	stock := c.Query("stock")
+	name := c.Query("name")
+	way := c.Query("way")
+	rsp := &dto.HqCommonRsp{}
+	rsp.Code = http.StatusOK
+	rsp.Msg = "OK"
+	if way != "name" && way != "symbol" {
+		rsp.Code = http.StatusBadRequest
+		rsp.Msg = "bad request"
+		c.JSON(http.StatusOK, rsp)
+		return
+	}
+
+	if (stock == "" && way == "symbol") || (way == "name" && name == "") {
+		rsp.Code = http.StatusBadRequest
+		rsp.Msg = "bad request"
+		c.JSON(http.StatusOK, rsp)
+		return
+	}
+
+	if way == "name" {
+		stock = infra.GetNameSymbol(name)
+		if stock == "" {
+			rsp.Code = http.StatusBadRequest
+			rsp.Msg = "bad request"
+			common.Logger.Infof("Find none such symbol")
+			c.JSON(http.StatusOK, rsp)
+			return
+		}
+	}
+
+	price, err := infra.GetRealDaily(stock)
+	if err != nil {
+		rsp.Code = http.StatusInternalServerError
+		rsp.Msg = err.Error()
+	} else {
+		rsp.Data = price
+	}
+	c.JSON(http.StatusOK, rsp)
 }

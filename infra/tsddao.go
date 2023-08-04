@@ -20,10 +20,17 @@ type DashBoardDao struct {
 	dashMon *tstock.DashBoardMonth
 }
 
+type HqCacheData struct {
+	Symbol string
+	Name   string
+	Data   []*dto.CnStockKData
+}
+
 type memData struct {
 	cnShares        map[string]*tstock.CnBasic
 	cnSharesNameMap map[string]string
 	orderMap        map[string]*tsorder.TOrder
+	hqData          map[string]*HqCacheData
 	lock            sync.Mutex
 }
 
@@ -33,6 +40,7 @@ var gmenOnce sync.Once
 func LoadData() {
 	gmenOnce.Do(func() {
 		gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}, orderMap: make(map[string]*tsorder.TOrder)}
+		gmemData.hqData = make(map[string]*HqCacheData)
 		LoadMemData()
 	})
 }
@@ -137,6 +145,26 @@ func LoadMemData() {
 			continue
 		}
 		gmemData.orderMap[order.OrderId] = order
+	}
+	gmemData.hqData = make(map[string]*HqCacheData)
+	symbols := [4]string{"sz399001", "sz399300", "sh000001", "sh000300"}
+	names := [4]string{"深圳成指", "沪深300", "上证指数", "沪深300"}
+	for i := 0; i < 4; i++ {
+		data, err := GetCnKData(symbols[i], "", 240, 200)
+		if err != nil {
+			common.Logger.Infof("Get %s failed:%s", symbols[i], err)
+		}
+		gmemData.hqData[symbols[i]] = &HqCacheData{Symbol: symbols[i], Name: names[i], Data: data}
+	}
+	common.Logger.Infof("cnShares.Size:%d, order.Size:%d, hq:%d", len(gmemData.cnShares), len(gmemData.orderMap), len(gmemData.hqData))
+}
+
+func GetKDataCache(symbol string) *HqCacheData {
+	hq, ok := gmemData.hqData[symbol]
+	if ok {
+		return hq
+	} else {
+		return nil
 	}
 }
 

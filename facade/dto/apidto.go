@@ -1,5 +1,7 @@
 package dto
 
+import "encoding/json"
+
 type CnAdminCmd struct {
 	Opt   string `json:"opt" binding:"required"`
 	Cmd   string `json:"cmd" binding:"required"`
@@ -93,10 +95,33 @@ type DashDaily struct {
 	Mood       int     `json:"mood"`
 }
 
+type CnStockKData struct {
+	Symbol     string      `json:"symbol"`
+	Open       json.Number `json:"open"`
+	High       json.Number `json:"high"`
+	Low        json.Number `json:"low"`
+	Close      json.Number `json:"close"`
+	Volume     json.Number `json:"volume"`
+	MaPrice5   float32     `json:"ma_price5"`
+	MaVolume5  int64       `json:"ma_volume5"`
+	MaPrice10  float32     `json:"ma_price10"`
+	MaVolume10 int64       `json:"ma_volume10"`
+	MaPrice30  float32     `json:"ma_price30"`
+	MaVolume30 int64       `json:"ma_volume30"`
+	Day        string      `json:"day"`
+}
+
+type DashData struct {
+	Daily   []*DashDaily    `json:"daily"`
+	SZDaily []*CnStockKData `json:"sz_daily"`
+	SHDaily []*CnStockKData `json:"sh_daily"`
+	HSDaily []*CnStockKData `json:"hs_daily"`
+}
+
 type DashDailyResponse struct {
-	Code int          `json:"code"`
-	Msg  string       `json:"msg"`
-	Data []*DashDaily `json:"data"`
+	Code int       `json:"code"`
+	Msg  string    `json:"msg"`
+	Data *DashData `json:"data"`
 }
 
 type UpDownItem struct {
@@ -180,4 +205,48 @@ type TradingStatRsp struct {
 	Code int             `json:"code"`
 	Msg  string          `json:"msg"`
 	Data *TradingStatDto `json:"data"`
+}
+
+type CnStockDaily struct {
+	Symbol    string  `json:"symbol"`
+	Name      string  `json:"name"`
+	Open      float32 `json:"open"`
+	PreClose  float32 `json:"preClose"`
+	CurePrice float32 `json:"curePrice"`
+	High      float32 `json:"high"`
+	Low       float32 `json:"low"`
+	BuyPrice  float32 `json:"buyPrice"`
+	SellPrice float32 `json:"sellPrice"`
+	Vol       int     `json:"vol"`
+	Amount    float64 `json:"amount"`
+	Buy1Vol   int     `json:"buy_1_vol"`
+	Buy1Price float64 `json:"buy_1_price"`
+	Buy2Vol   int     `json:"buy_2_vol"`
+	Buy2Price float64 `json:"buy_2_price"`
+	Buy3Vol   int     `json:"buy_3_vol"`
+	Buy3Price float64 `json:"buy_3_price"`
+	Buy4Vol   int     `json:"buy_4_vol"`
+	Buy4Price float64 `json:"buy_4_price"`
+	Buy5Vol   int     `json:"buy_5_vol"`
+	Buy5Price float64 `json:"buy_5_price"`
+
+	Sell1Vol   int     `json:"sell_1_vol"`
+	Sell1Price float64 `json:"sell_1_price"`
+	Sell2Vol   int     `json:"sell_2_vol"`
+	Sell2Price float64 `json:"sell_2_price"`
+	Sell3Vol   int     `json:"sell_3_vol"`
+	Sell3Price float64 `json:"sell_3_price"`
+	Sell4Vol   int     `json:"sell_4_vol"`
+	Sell4Price float64 `json:"sell_4_price"`
+	Sell5Vol   int     `json:"sell_5_vol"`
+	Sell5Price float64 `json:"sell_5_price"`
+	Date       string  `json:"date"`
+	Time       string  `json:"time"`
+	Status     string  `json:"status"`
+}
+
+type HqCommonRsp struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data any    `json:"data"`
 }

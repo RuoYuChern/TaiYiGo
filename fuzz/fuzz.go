@@ -366,6 +366,21 @@ func testGetReal() {
 	for _, p := range priceList {
 		log.Printf("%+v", p)
 	}
+
+	price, err := infra.GetRealDaily("300474.SZ")
+	if err != nil {
+		log.Printf("erros:%s", err)
+		return
+	}
+	log.Printf("%+v", price)
+	datas, err := infra.GetCnKData("sh000001", "", 240, 10)
+	if err != nil {
+		log.Printf("erros:%s", err)
+		return
+	}
+	for _, d := range datas {
+		log.Printf("%+v", d)
+	}
 }
 
 func testHeap() {

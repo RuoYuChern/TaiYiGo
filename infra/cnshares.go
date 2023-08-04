@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin/binding"
 	"taiyigo.com/common"
+	"taiyigo.com/facade/dto"
 )
 
 type tuShareReq struct {
@@ -58,6 +59,7 @@ type tjDailyRsp struct {
 var (
 	tuShareUrl = "http://api.tushare.pro"
 	sinaUrl    = "http://hq.sinajs.cn"
+	sinaKUrl   = "https://quotes.sina.cn/cn/api/jsonp_v2.php"
 )
 
 func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyInfo, error) {
@@ -232,6 +234,40 @@ func QueryCnShareDailyRange(tscode string, startDate string, endDate string) ([]
 	return dailyOut, nil
 }
 
+func GetCnKData(symbol string, ma string, scale int, dataLen int) ([]*dto.CnStockKData, error) {
+	tsCode := toSinaSymbol(symbol)
+	realUrl := fmt.Sprintf("%s/%s_%s_%d_%d=/CN_MarketDataService.getKLineData", sinaKUrl, "var%20", tsCode,
+		scale, time.Now().Unix())
+	queryMap := make(map[string]string)
+	queryMap["symbol"] = tsCode
+	queryMap["scale"] = strconv.Itoa(scale)
+	if ma != "" {
+		queryMap["ma"] = ma
+	}
+	queryMap["datalen"] = strconv.Itoa(dataLen)
+	headers := make(map[string]string)
+	headers["Referer"] = "http://finance.sina.com.cn"
+	body, err := doGet2(realUrl, queryMap, headers)
+	if err != nil {
+		return nil, err
+	}
+	values := string(body)
+	start := strings.Index(values, "[")
+	end := strings.LastIndex(values, "]")
+	if start < 0 || end < 0 {
+		return nil, errors.New("data error")
+	}
+	datas := make([]*dto.CnStockKData, 0)
+	err = binding.JSON.BindBody([]byte(common.SubString(values, start, end+1)), &datas)
+	if err == nil {
+		for _, d := range datas {
+			d.Symbol = symbol
+			d.Day = strings.ReplaceAll(d.Day, "-", "")
+		}
+	}
+	return datas, nil
+}
+
 func BatchGetRealPrice(symbols []string) (map[string]*CnStockPrice, error) {
 	var buf strings.Builder
 	for _, v := range symbols {
@@ -243,7 +279,7 @@ func BatchGetRealPrice(symbols []string) (map[string]*CnStockPrice, error) {
 	realUrl := fmt.Sprintf("%s/list=%s", sinaUrl, buf.String())
 	headers := make(map[string]string)
 	headers["Referer"] = "http://finance.sina.com.cn"
-	body, err := doGet2(realUrl, headers)
+	body, err := doGet2(realUrl, nil, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -263,11 +299,34 @@ func BatchGetRealPrice(symbols []string) (map[string]*CnStockPrice, error) {
 	return priceMap, nil
 }
 
+func GetRealDaily(symbol string) (*dto.CnStockDaily, error) {
+	realUrl := fmt.Sprintf("%s/list=%s", sinaUrl, toSinaSymbol(symbol))
+	headers := make(map[string]string)
+	headers["Referer"] = "http://finance.sina.com.cn"
+	body, err := doGet2(realUrl, nil, headers)
+	if err != nil {
+		return nil, err
+	}
+	values := strings.ReplaceAll(string(body), "\n", "")
+	valueList := strings.Split(values, ";")
+	for _, v := range valueList {
+		if v == "" {
+			continue
+		}
+		obj, err := toSinaVo2(v)
+		if err != nil {
+			common.Logger.Infof("GetRealDaily %s to failed:%s", symbol, err)
+			return nil, err
+		}
+		return obj, nil
+	}
+	return nil, errors.New("find none value")
+}
+
 func toSinaVo(value string) (*CnStockPrice, error) {
 	pos := strings.Index(value, "\"")
 	end := strings.LastIndex(value, "\"")
 	if pos < 0 || end < 0 {
-
 		return nil, errors.New("pos or end < 0")
 	}
 
@@ -275,13 +334,60 @@ func toSinaVo(value string) (*CnStockPrice, error) {
 	price := &CnStockPrice{}
 	price.Name = valueList[0]
 	price.Symbol = fromSinaSymbol(value)
-	price.Open, _ = strconv.ParseFloat(valueList[1], 64)
-	price.PreClose, _ = strconv.ParseFloat(valueList[2], 64)
-	price.CurePrice, _ = strconv.ParseFloat(valueList[3], 64)
-	price.High, _ = strconv.ParseFloat(valueList[4], 64)
-	price.Low, _ = strconv.ParseFloat(valueList[5], 64)
+	price.Open = common.StrToF32(valueList[1])
+	price.PreClose = common.StrToF32(valueList[2])
+	price.CurePrice = common.StrToF32(valueList[3])
+	price.High = common.StrToF32(valueList[4])
+	price.Low = common.StrToF32(valueList[5])
 	price.Date = strings.ReplaceAll(valueList[30], "-", "")
 	price.Time = valueList[31]
+	return price, nil
+}
+
+func toSinaVo2(value string) (*dto.CnStockDaily, error) {
+	pos := strings.Index(value, "\"")
+	end := strings.LastIndex(value, "\"")
+	if pos < 0 || end < 0 {
+		return nil, errors.New("pos or end < 0")
+	}
+	valueList := strings.Split(common.SubString(value, pos+1, end), ",")
+	price := &dto.CnStockDaily{}
+	price.Name = valueList[0]
+	price.Symbol = fromSinaSymbol(value)
+	price.Open = common.StrToF32(valueList[1])
+	price.PreClose = common.StrToF32(valueList[2])
+	price.CurePrice = common.StrToF32(valueList[3])
+	price.High = common.StrToF32(valueList[4])
+	price.Low = common.StrToF32(valueList[5])
+	price.BuyPrice = common.StrToF32(valueList[6])
+	price.SellPrice = common.StrToF32(valueList[7])
+	price.Vol, _ = strconv.Atoi(valueList[8])
+	price.Amount, _ = strconv.ParseFloat(valueList[9], 64)
+	price.Buy1Vol, _ = strconv.Atoi(valueList[10])
+	price.Buy1Price, _ = strconv.ParseFloat(valueList[11], 64)
+	price.Buy2Vol, _ = strconv.Atoi(valueList[12])
+	price.Buy2Price, _ = strconv.ParseFloat(valueList[13], 64)
+	price.Buy3Vol, _ = strconv.Atoi(valueList[14])
+	price.Buy3Price, _ = strconv.ParseFloat(valueList[15], 64)
+	price.Buy4Vol, _ = strconv.Atoi(valueList[16])
+	price.Buy4Price, _ = strconv.ParseFloat(valueList[17], 64)
+	price.Buy5Vol, _ = strconv.Atoi(valueList[18])
+	price.Buy5Price, _ = strconv.ParseFloat(valueList[19], 64)
+
+	price.Sell1Vol, _ = strconv.Atoi(valueList[20])
+	price.Sell1Price, _ = strconv.ParseFloat(valueList[21], 64)
+	price.Sell2Vol, _ = strconv.Atoi(valueList[22])
+	price.Sell2Price, _ = strconv.ParseFloat(valueList[23], 64)
+	price.Sell3Vol, _ = strconv.Atoi(valueList[24])
+	price.Sell3Price, _ = strconv.ParseFloat(valueList[25], 64)
+	price.Sell4Vol, _ = strconv.Atoi(valueList[26])
+	price.Sell4Price, _ = strconv.ParseFloat(valueList[27], 64)
+	price.Sell5Vol, _ = strconv.Atoi(valueList[28])
+	price.Sell5Price, _ = strconv.ParseFloat(valueList[29], 64)
+
+	price.Date = strings.ReplaceAll(valueList[30], "-", "")
+	price.Time = valueList[31]
+	price.Status = valueList[32]
 	return price, nil
 }
 

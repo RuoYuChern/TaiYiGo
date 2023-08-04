@@ -48,8 +48,23 @@ func (hc *httpConnector) Close() {
 
 }
 
-func doGet2(realUrl string, hearder map[string]string) ([]byte, error) {
-	req, err := http.NewRequest("GET", realUrl, nil)
+func doGet2(realUrl string, params map[string]string, hearder map[string]string) ([]byte, error) {
+	base, err := url.Parse(realUrl)
+	if err != nil {
+		common.Logger.Infof("parse failed %s\n", err)
+		return nil, err
+	}
+
+	if params != nil {
+		qp := url.Values{}
+		for k, v := range params {
+			qp.Add(k, v)
+		}
+		base.RawQuery = qp.Encode()
+	}
+
+	apiUrl := base.String()
+	req, err := http.NewRequest("GET", apiUrl, nil)
 	if err != nil {
 		common.Logger.Warnf("NewRequest:%s", err.Error())
 		return nil, err

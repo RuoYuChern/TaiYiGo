@@ -73,9 +73,10 @@ func poll(sList *list.List) {
 			continue
 		}
 		bs.doSign()
+		old := front
 		front = front.Next()
 		if bs.isOnce() {
-			sList.Remove(front)
+			sList.Remove(old)
 		}
 	}
 }

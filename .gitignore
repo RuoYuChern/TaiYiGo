@@ -3,7 +3,8 @@
 *.iml
 **/target
 **/*.json
-/log 
+/log
+/app/taiyigo 
 **/logs
 **/*.exe
 **/**/.DS_Store
