@@ -277,6 +277,8 @@ func doGetTradingStat() (*dto.TradingStatDto, error) {
 			statDto.Orders[off-1] = ord
 			off -= 1
 		}
+		statDto.Amount = common.FFloat(statDto.Amount, 4)
+		statDto.Pnl = common.FFloat(statDto.Pnl, 4)
 	}
 	return statDto, nil
 }
