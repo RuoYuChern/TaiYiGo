@@ -83,13 +83,15 @@ func (api *restServer) Start(ctx *context.Context) error {
 	router.GET(fmt.Sprintf("%s/hq/get-up-down", common.Conf.Http.Prefix), getUpDown)
 	router.GET(fmt.Sprintf("%s/hq/get-hot", common.Conf.Http.Prefix), getHot)
 	router.GET(fmt.Sprintf("%s/hq/get-symbol-n", common.Conf.Http.Prefix), getSymbolLastN)
-	router.GET(fmt.Sprintf("%s/trade/get-trading-stat", common.Conf.Http.Prefix), tradingStat)
 	router.GET(fmt.Sprintf("%s/hq/get-cn-rt-price", common.Conf.Http.Prefix), getCnRtPrice)
+	router.GET(fmt.Sprintf("%s/hq/get-forward", common.Conf.Http.Prefix), getForward)
+	router.GET(fmt.Sprintf("%s/trade/get-trading-stat", common.Conf.Http.Prefix), tradingStat)
 
 	router.POST(fmt.Sprintf("%s/auth/do-login", common.Conf.Http.Prefix), doUserLogin)
 	router.POST(fmt.Sprintf("%s/auth/do-add-user", common.Conf.Http.Prefix), jwtAuthMiddleware, doAddUser)
 
 	router.POST(fmt.Sprintf("%s/trade/do-trading", common.Conf.Http.Prefix), jwtAuthMiddleware, doTrading)
+	router.POST(fmt.Sprintf("%s/trade/modify-trading", common.Conf.Http.Prefix), jwtAuthMiddleware, modifyTrading)
 
 	router.POST(fmt.Sprintf("%s/load-cn-history", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnSharesHistory)
 	router.POST(fmt.Sprintf("%s/load-cn-basic", common.Conf.Http.Prefix), jwtAuthMiddleware, loadCnBasic)

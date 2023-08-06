@@ -5,9 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
-	"taiyigo.com/facade/tsdb"
 	"taiyigo.com/facade/tstock"
 	"taiyigo.com/indicators"
 	"taiyigo.com/infra"
@@ -54,11 +52,7 @@ func (jst *JustifyStat) Action() {
 			continue
 		}
 
-		start, _ := common.ToDay(common.YYYYMMDD, jst.StartDay)
-		end, _ := common.ToDay(common.YYYYMMDD, cnShareLastDay)
-		tsql := infra.Gettsdb().OpenQuery(basic.Symbol)
-		dlist, err := tsql.GetRange(uint64(start.UnixMilli()), uint64(end.UnixMilli()), 0)
-		infra.Gettsdb().CloseQuery(tsql)
+		dlist, err := infra.GetDayBetween(basic.Symbol, jst.StartDay, cnShareLastDay, 0)
 		if err != nil {
 			common.Logger.Infof("Symbol %s,between [%s, %s] error:%s", basic.Symbol, jst.StartDay, cnShareLastDay, err.Error())
 			continue
@@ -66,13 +60,7 @@ func (jst *JustifyStat) Action() {
 		common.Logger.Debugf("Symbol:%s, between [%s, %s], total:%d", basic.Symbol, jst.StartDay, cnShareLastDay, dlist.Len())
 		filter := make(map[string]bool, 0)
 		for f := dlist.Front(); f != nil; f = f.Next() {
-			candle := &tstock.Candle{}
-			value := f.Value.(*tsdb.TsdbData)
-			err = proto.Unmarshal(value.Data, candle)
-			if err != nil {
-				common.Logger.Warnf("Unmarshal failed:%s", err)
-				return
-			}
+			candle := f.Value.(*tstock.Candle)
 			period := time.Unix(int64(candle.Period/1000), 0)
 			day := common.GetDay(common.YYYYMMDD, period)
 			daySymbol := fmt.Sprintf("%s.%s", day, basic.Symbol)
@@ -189,5 +177,6 @@ func (mgs *MergeSTF) Action() {
 	if err != nil {
 		common.Logger.Warnf("merge stf error:%s", err)
 	}
+	GetBrain().Subscript(TOPIC_STF, &ForwardFlow{})
 	common.Logger.Infof("merge stf over")
 }

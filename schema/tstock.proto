@@ -77,6 +77,19 @@ message StfRecord{
     string highDay = 6;
 }
 
+
+message ForwardItem{
+    string day = 1;
+    int32 total = 2;
+    int32 success = 3;
+    int32 failed = 4;
+}
+
+message ForwardStatRecord{
+    string mon = 1;
+    repeated ForwardItem items = 2;
+}
+
 message CnBasicList{
     int32 numbers = 1;
     repeated CnBasic cnBasicList = 2;
@@ -100,11 +113,18 @@ message TopSymbol{
     double vol = 4;
 }
 
+message SymbolRate{
+    string symbol = 1;
+    double close = 2;
+    double preClose = 3;
+    double rate = 4;
+}
+
 message DashBoardV1{
     string day = 1;
     repeated TopSymbol top20Vol = 2;
-    repeated string upLimit = 3;
-    repeated string downLimit = 4;
+    repeated SymbolRate upLimit = 3;
+    repeated SymbolRate downLimit = 4;
     double totalVol = 5;
     double totalAmount = 6;
     double upStocks = 7;
@@ -120,4 +140,21 @@ message DashBoardMonth{
 message DashBoardYear{
     string year = 1;
     repeated DashBoardMonth monthDash = 2;
+}
+
+
+message CnShareDay{
+    double close = 1;
+    int32 vol = 2;
+    string day = 3;
+}
+
+message CnSharesStat{
+    string symbol = 1;
+    CnShareDay maxPrice = 2;
+    CnShareDay minPirce = 3;
+    CnShareDay maxVol = 4;
+    CnShareDay minVol = 5;
+    string orderStartDay = 6;
+    string updateDay = 7;
 }

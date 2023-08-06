@@ -389,9 +389,10 @@ func testHeap() {
 		sv := s.(int)
 		return (fv - sv)
 	}
-	lskp := common.NewLp(10, lcp)
-	for off := 0; off <= 100; off++ {
-		lskp.Add(off)
+	lskp := common.NewLp(8, lcp)
+	values := [12]int{12, 10, 1, 19, 96, 97, 17, 13, 98, 99, 5, 100}
+	for off := 0; off < 12; off++ {
+		lskp.Add(values[off])
 	}
 
 	log.Printf("hpl:%d\n", lskp.Len())
@@ -406,7 +407,7 @@ func testHeap() {
 }
 
 func main() {
-	c := 'R'
+	c := 'H'
 	testBsd()
 	switch c {
 	case 'b':

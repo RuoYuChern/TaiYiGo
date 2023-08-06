@@ -55,6 +55,8 @@ func adminCommond(c *gin.Context) {
 		brain.GetBrain().Subscript(brain.TOPIC_STF, &brain.FlowStart{})
 	} else if cmd.Cmd == "tsdb" {
 		brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &tsdbRedo{})
+	} else if cmd.Cmd == "forward" {
+		brain.GetBrain().Subscript(brain.TOPIC_STF, &brain.ForwardFlow{})
 	}
 
 }

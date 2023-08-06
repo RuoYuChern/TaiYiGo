@@ -125,10 +125,13 @@ type DashDailyResponse struct {
 }
 
 type UpDownItem struct {
-	Name   string `json:"name"`
-	Symbol string `json:"symbol"`
-	Day    string `json:"day"`
-	Flag   int    `json:"flag"`
+	Name     string  `json:"name"`
+	Symbol   string  `json:"symbol"`
+	Close    float32 `json:"close"`
+	PreClose float32 `json:"preClose"`
+	PctChg   float32 `json:"pctChange"`
+	Day      string  `json:"day"`
+	Flag     int     `json:"flag"`
 }
 
 type UpDownResponse struct {
@@ -197,6 +200,7 @@ type TradingStatDto struct {
 	Pnl           float64       `json:"pnl"`
 	FailedOrders  int           `json:"failed"`
 	SuccessOrders int           `json:"success"`
+	BuyOrders     int           `json:"buy"`
 	CancelOrders  int           `json:"cancel"`
 	Orders        []*TradingDto `json:"orders"`
 }
@@ -243,6 +247,13 @@ type CnStockDaily struct {
 	Date       string  `json:"date"`
 	Time       string  `json:"time"`
 	Status     string  `json:"status"`
+}
+
+type HqForwardItem struct {
+	Day     string `json:"day"`
+	Total   int    `json:"total"`
+	Success int    `json:"success"`
+	Failed  int    `json:"failed"`
 }
 
 type HqCommonRsp struct {

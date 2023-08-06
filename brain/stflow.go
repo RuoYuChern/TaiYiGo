@@ -1,6 +1,8 @@
 package brain
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -20,6 +22,10 @@ type FlowStart struct {
 type TradeFlow struct {
 	common.Actor
 	trade *tradingSign
+}
+
+type ForwardFlow struct {
+	common.Actor
 }
 
 func (ts *TradeFlow) Action() {
@@ -63,6 +69,10 @@ func doBuy(tOrd *tsorder.TOrder, priceMap map[string]*infra.CnStockPrice) {
 	if !ok {
 		common.Logger.Infof("Find none such price:%s", tOrd.Symbol)
 	} else {
+		today := common.GetDay(common.YYYYMMDD, time.Now())
+		if today != price.Date {
+			return
+		}
 		highPrice := tOrd.OrderPrice * 1.05
 		if price.CurePrice <= highPrice {
 			tOrd.Status = dto.ORDER_BUY
@@ -90,6 +100,10 @@ func doSell(tOrd *tsorder.TOrder, priceMap map[string]*infra.CnStockPrice) {
 	price, ok := priceMap[tOrd.Symbol]
 	if !ok {
 		common.Logger.Infof("Find none such price:%s", tOrd.Symbol)
+		return
+	}
+	today := common.GetDay(common.YYYYMMDD, time.Now())
+	if today != price.Date {
 		return
 	}
 	lowPrice := tOrd.BuyPrice * 1.20
@@ -180,5 +194,122 @@ func (fs *FlowStart) Action() {
 			common.Logger.Infof("Save day %s failed:%s", lastDay, err)
 		}
 		GetBrain().Subscript(TOPIC_STF, &MergeSTF{})
+	}
+}
+
+func (act *ForwardFlow) Action() {
+	hqDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
+	if err != nil {
+		common.Logger.Infof("ForwardFlow failed, get hqDay failed:%s", err)
+		return
+	}
+
+	lowDay, err := infra.GetByKey(infra.CONF_TABLE, "forward.day")
+	if err != nil {
+		lowDay = ""
+	}
+
+	dir := fmt.Sprintf("%s/meta", common.Conf.Infra.FsDir)
+	fsList, err := common.GetFileList(dir, "S_stf.dat", "normal_S_stf.dat", 90)
+	if err != nil {
+		common.Logger.Infof("ForwardFlow failed, GetStfRecord failed:%s", err)
+		return
+	}
+
+	common.Logger.Infof("lowDay:%s, hqDay:%s", lowDay, hqDay)
+	forwardItemMap := make(map[string]*tstock.ForwardItem)
+	var forwardRecord *tstock.ForwardStatRecord
+	newLowDay := ""
+	off := 0
+	for f := fsList.Front(); f != nil; f = f.Next() {
+		if (fsList.Len() - off) < 10 {
+			break
+		}
+		off++
+		parts := strings.SplitN(f.Value.(string), "_", 3)
+		day := parts[0]
+		if strings.Compare(lowDay, day) >= 0 {
+			continue
+		}
+		newLowDay = day
+		stfList := tstock.StfList{}
+		err := infra.GetStfList("S", day, &stfList)
+		if err != nil {
+			common.Logger.Warnf("Get day %s stflist failed:%s", day, err)
+			continue
+		}
+		//day
+		common.Logger.Infof("forward day:%s, size:%d", day, len(stfList.Stfs))
+		for _, stf := range stfList.Stfs {
+			if stf.Opt != "BUY" {
+				continue
+			}
+			dat, err := infra.GetDayBetween(stf.Symbol, day, hqDay, 0)
+			if err != nil {
+				common.Logger.Infof("Get %s between [%s,%s], failed:%s", stf.Symbol, day, hqDay, err)
+				continue
+			}
+			if dat.Len() < 10 {
+				common.Logger.Debugf("Symbol:%s, day between:[%s,%s] has data:%d", stf.Symbol, day, hqDay, dat.Len())
+				continue
+			}
+			off := dat.Len() - 10
+			maxPrice := 0.0
+			fcandle := dat.Front().Value.(*tstock.Candle)
+			for b := dat.Back(); b != nil; b = b.Prev() {
+				candle := b.Value.(*tstock.Candle)
+				if maxPrice < candle.Close {
+					maxPrice = candle.Close
+				}
+				off -= 1
+				if off <= 0 {
+					break
+				}
+			}
+			fItem, ok := forwardItemMap[day]
+			if !ok {
+				fItem = &tstock.ForwardItem{Day: day}
+				forwardItemMap[day] = fItem
+			}
+			fItem.Total += 1
+			diff := maxPrice - fcandle.Close
+			rate := fcandle.Close * 0.15
+			if diff < 0 {
+				fItem.Failed += 1
+			} else if diff >= rate {
+				fItem.Success += 1
+			}
+		}
+		//day over
+		fItem, ok := forwardItemMap[day]
+		if !ok {
+			continue
+		}
+		common.Logger.Infof("forward day:%s, total:%d", day, fItem.Total)
+		mon := common.SubString(day, 0, 6)
+		if forwardRecord != nil && forwardRecord.Mon != mon {
+			err = infra.SaveForwardRecord(forwardRecord.Mon, forwardRecord)
+			if err != nil {
+				common.Logger.Infof("SaveForwardRecord mon %s, failed:%s", forwardRecord.Mon, err)
+				return
+			}
+			forwardRecord = nil
+		}
+		if forwardRecord == nil {
+			forwardRecord = &tstock.ForwardStatRecord{Mon: mon, Items: make([]*tstock.ForwardItem, 0)}
+			forwardRecord.Items = append(forwardRecord.Items, fItem)
+		} else {
+			forwardRecord.Items = append(forwardRecord.Items, fItem)
+		}
+	}
+	if forwardRecord != nil {
+		err = infra.SaveForwardRecord(forwardRecord.Mon, forwardRecord)
+		if err != nil {
+			common.Logger.Infof("SaveForwardRecord mon %s, failed:%s", forwardRecord.Mon, err)
+			return
+		}
+	}
+	if newLowDay != "" {
+		infra.SetKeyValue(infra.CONF_TABLE, "forward.day", newLowDay)
 	}
 }

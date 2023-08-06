@@ -23,6 +23,26 @@ func tradingStat(c *gin.Context) {
 	c.JSON(http.StatusOK, rsp)
 }
 
+func modifyTrading(c *gin.Context) {
+	cmd := &dto.CnAdminCmd{}
+	rsp := &dto.CommonResponse{Code: http.StatusOK, Msg: "OK"}
+	if err := c.BindJSON(cmd); err != nil {
+		common.Logger.Infof("Can not find args:%+v", cmd)
+		rsp.Code = http.StatusBadRequest
+		rsp.Msg = "Args error"
+		c.JSON(http.StatusOK, rsp)
+		return
+	}
+	if cmd.Opt == "BuyDate" {
+		tOrd := infra.GetOrder(cmd.Cmd)
+		if tOrd != nil {
+			tOrd.BuyDay = cmd.Value
+			infra.SaveObject(infra.ORDER_TABLE, tOrd.OrderId, tOrd)
+		}
+	}
+	c.JSON(http.StatusOK, rsp)
+}
+
 func doTrading(c *gin.Context) {
 	req := dto.TradingReq{}
 	rsp := &dto.CommonResponse{Code: http.StatusOK, Msg: "OK"}

@@ -48,6 +48,10 @@ func (trade *tradingSign) isTimeTo() bool {
 		return false
 	}
 	h, m := common.GetTodayHAndM()
+	day := time.Now().Weekday()
+	if day == time.Saturday || day == time.Sunday {
+		return false
+	}
 	// 09:30 ~ 11:30 || 13:00~15:00
 	if (h == 9) && (m >= 30) {
 		return true

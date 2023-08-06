@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"taiyigo.com/common"
@@ -176,7 +177,19 @@ func getUpDown(c *gin.Context) {
 	rsp := &dto.UpDownResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
-	data, err := getLastUpDown()
+	orderDay := c.Query("orderDay")
+	if orderDay == "" {
+		lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
+		if err != nil {
+			rsp.Code = http.StatusNoContent
+			rsp.Msg = err.Error()
+			c.JSON(http.StatusOK, rsp)
+			return
+		}
+		orderDay = lastDay
+	}
+
+	data, err := getLastUpDown(orderDay)
 	if err != nil {
 		rsp.Code = http.StatusInternalServerError
 		rsp.Msg = err.Error()
@@ -190,7 +203,19 @@ func getHot(c *gin.Context) {
 	rsp := &dto.GetHotResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
-	data, err := getLatestHot()
+
+	orderDay := c.Query("orderDay")
+	if orderDay == "" {
+		lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
+		if err != nil {
+			rsp.Code = http.StatusNoContent
+			rsp.Msg = err.Error()
+			c.JSON(http.StatusOK, rsp)
+			return
+		}
+		orderDay = lastDay
+	}
+	data, err := getLatestHot(orderDay)
 	if err != nil {
 		rsp.Code = http.StatusInternalServerError
 		rsp.Msg = err.Error()
@@ -264,5 +289,32 @@ func getCnRtPrice(c *gin.Context) {
 	} else {
 		rsp.Data = price
 	}
+	c.JSON(http.StatusOK, rsp)
+}
+
+func getForward(c *gin.Context) {
+	mon := c.Query("month")
+	if mon == "" {
+		mon = common.GetYearMon(time.Now())
+	}
+
+	rsp := &dto.HqCommonRsp{}
+	rsp.Code = http.StatusOK
+	rsp.Msg = "OK"
+	record := &tstock.ForwardStatRecord{}
+	err := infra.GetForwardRecord(mon, record)
+	if err != nil {
+		rsp.Code = http.StatusNotFound
+		rsp.Msg = err.Error()
+		c.JSON(http.StatusOK, rsp)
+		return
+	}
+	total := len(record.Items)
+	items := make([]*dto.HqForwardItem, total)
+	for off := 0; off < total; off++ {
+		item := record.Items[off]
+		items[off] = &dto.HqForwardItem{Day: item.Day, Total: int(item.Total), Success: int(item.Success), Failed: int(item.Failed)}
+	}
+	rsp.Data = items
 	c.JSON(http.StatusOK, rsp)
 }

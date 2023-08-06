@@ -27,6 +27,11 @@ func GetYear(t time.Time) string {
 	return strconv.Itoa(t.Year())
 }
 
+func GetYearMon(t time.Time) string {
+	day := GetDay(YYYYMMDD, t)
+	return SubString(day, 0, 6)
+}
+
 func ToDay(f string, tstr string) (time.Time, error) {
 	t, err := time.Parse(f, tstr)
 	return t, err

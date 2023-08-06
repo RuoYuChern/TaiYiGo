@@ -190,51 +190,21 @@ func GetLastNMonthDash(month int) []*tstock.DashBoardMonth {
 	return dbm
 }
 
-func GetLastNDayDash(day int, up bool) []*tstock.DashBoardV1 {
-	month := (day / 30) + 1
-	dir := fmt.Sprintf("%s/meta", common.Conf.Infra.FsDir)
-	fsList, err := common.GetFileList(dir, "dbd.dat", "hdbd.dat", month)
+func GetLastDayDash(day string) *tstock.DashBoardV1 {
+	month := common.SubString(day, 0, 6)
+	name := fmt.Sprintf("%s_dbd.dat", month)
+	dm := &tstock.DashBoardMonth{}
+	err := GetMsg(name, dm)
 	if err != nil {
-		common.Logger.Warnf("GetFileList:%s", err)
+		common.Logger.Infof("read %s failed:%s", name, err)
 		return nil
 	}
-	dList := list.New()
-	for t := fsList.Back(); t != nil; t = t.Prev() {
-		dm := &tstock.DashBoardMonth{}
-		err = GetMsg(t.Value.(string), dm)
-		if err != nil {
-			common.Logger.Infof("read %s failed:%s", t.Value.(string), err)
-			return nil
-		}
-		off := len(dm.DailyDash) - 1
-		for off >= 0 {
-			dList.PushFront(dm.DailyDash[off])
-			off -= 1
-			if dList.Len() == day {
-				break
-			}
-		}
-		if dList.Len() == day {
-			break
+	for _, v := range dm.DailyDash {
+		if v.Day == day {
+			return v
 		}
 	}
-	if dList.Len() == 0 {
-		return nil
-	}
-	dbdvs := make([]*tstock.DashBoardV1, dList.Len())
-	off := 0
-	if up {
-		for f := dList.Front(); f != nil; f = f.Next() {
-			dbdvs[off] = f.Value.(*tstock.DashBoardV1)
-			off++
-		}
-	} else {
-		for f := dList.Back(); f != nil; f = f.Prev() {
-			dbdvs[off] = f.Value.(*tstock.DashBoardV1)
-			off++
-		}
-	}
-	return dbdvs
+	return nil
 }
 
 func GetSymbolName(symbol string) string {
@@ -293,6 +263,31 @@ func GetUnFinishOrders() *list.List {
 	}
 	gmemData.lock.Unlock()
 	return orders
+}
+
+func GetDayBetween(symbol, low, high string, offset int) (*list.List, error) {
+	start, _ := common.ToDay(common.YYYYMMDD, low)
+	end, _ := common.ToDay(common.YYYYMMDD, high)
+	tsd := Gettsdb()
+	tql := tsd.OpenQuery(symbol)
+	datList, err := tql.GetRange(uint64(start.UnixMilli()), uint64(end.UnixMilli()), offset)
+	tsd.CloseQuery(tql)
+	tsd.Close()
+	if err != nil {
+		return nil, err
+	}
+	candleList := list.New()
+	for front := datList.Front(); front != nil; front = front.Next() {
+		candle := &tstock.Candle{}
+		value := front.Value.(*tsdb.TsdbData)
+		err = proto.Unmarshal(value.Data, candle)
+		if err != nil {
+			common.Logger.Warnf("Unmarshal failed:%s", err)
+			return nil, err
+		}
+		candleList.PushBack(candle)
+	}
+	return candleList, nil
 }
 
 func GetSymbolNPoint(symbol, date string, n int) ([]*tstock.Candle, error) {
@@ -356,6 +351,25 @@ func SaveStfList(status string, day string, msg proto.Message) error {
 
 func GetStfList(status string, day string, msg proto.Message) error {
 	name := fmt.Sprintf("%s_%s_stf.dat", day, status)
+	err := GetMsg(name, msg)
+	return err
+}
+
+func SaveForwardRecord(mon string, record *tstock.ForwardStatRecord) error {
+	name := fmt.Sprintf("%s_fwd.dat", mon)
+	old := &tstock.ForwardStatRecord{}
+	err := GetMsg(name, old)
+	if err != nil {
+		err = SaveMsg(name, record)
+	} else {
+		old.Items = append(old.Items, record.Items...)
+		err = SaveMsg(name, old)
+	}
+	return err
+}
+
+func GetForwardRecord(mon string, msg proto.Message) error {
+	name := fmt.Sprintf("%s_fwd.dat", mon)
 	err := GetMsg(name, msg)
 	return err
 }

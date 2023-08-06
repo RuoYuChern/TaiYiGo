@@ -182,43 +182,48 @@ func calLatestDash() (*dto.DashData, error) {
 	return data, nil
 }
 
-func getLastUpDown() ([]*dto.UpDownItem, error) {
-	dailyList := infra.GetLastNDayDash(5, false)
-	if dailyList == nil {
+func getLastUpDown(day string) ([]*dto.UpDownItem, error) {
+	dbv := infra.GetLastDayDash(day)
+	if dbv == nil {
 		common.Logger.Infof("No data")
 		return nil, errors.New("no data")
 	}
-	data := make([]*dto.UpDownItem, 0)
-	for _, d := range dailyList {
-		for _, u := range d.UpLimit {
-			udi := &dto.UpDownItem{Day: d.Day, Symbol: u}
-			udi.Flag = 1
-			udi.Name = infra.GetSymbolName(u)
-			data = append(data, udi)
-		}
-		for _, dn := range d.DownLimit {
-			udi := &dto.UpDownItem{Day: d.Day, Symbol: dn}
-			udi.Flag = 0
-			udi.Name = infra.GetSymbolName(dn)
-			data = append(data, udi)
-		}
+	data := make([]*dto.UpDownItem, len(dbv.UpLimit)+len(dbv.DownLimit))
+	off := 0
+	for _, u := range dbv.UpLimit {
+		udi := &dto.UpDownItem{Day: dbv.Day, Symbol: u.Symbol}
+		udi.Flag = 1
+		udi.Name = infra.GetSymbolName(u.Symbol)
+		udi.Close = float32(u.Close)
+		udi.PreClose = float32(u.PreClose)
+		udi.PctChg = float32(u.Rate)
+		data[off] = udi
+		off++
+	}
+	for _, dn := range dbv.DownLimit {
+		udi := &dto.UpDownItem{Day: dbv.Day, Symbol: dn.Symbol}
+		udi.Flag = 0
+		udi.Name = infra.GetSymbolName(dn.Symbol)
+		udi.Close = float32(dn.Close)
+		udi.PreClose = float32(dn.PreClose)
+		udi.PctChg = float32(dn.Rate)
+		data[off] = udi
+		off++
 	}
 	return data, nil
 }
 
-func getLatestHot() ([]*dto.HotItem, error) {
-	dailyList := infra.GetLastNDayDash(20, true)
-	if dailyList == nil {
+func getLatestHot(day string) ([]*dto.HotItem, error) {
+	dbv := infra.GetLastDayDash(day)
+	if dbv == nil {
 		common.Logger.Infof("No data")
 		return nil, errors.New("no data")
 	}
 	data := make([]*dto.HotItem, 0)
-	for _, dbv := range dailyList {
-		for _, dv := range dbv.Top20Vol {
-			hi := &dto.HotItem{Symbol: dv.Name, Day: dbv.Day, Vol: dv.Vol, Open: dv.Open, Close: dv.Close}
-			hi.Name = infra.GetSymbolName(hi.Symbol)
-			data = append(data, hi)
-		}
+	for _, dv := range dbv.Top20Vol {
+		hi := &dto.HotItem{Symbol: dv.Name, Day: dbv.Day, Vol: dv.Vol, Open: dv.Open, Close: dv.Close}
+		hi.Name = infra.GetSymbolName(hi.Symbol)
+		data = append(data, hi)
 	}
 	return data, nil
 }
@@ -249,6 +254,9 @@ func doGetTradingStat() (*dto.TradingStatDto, error) {
 			if tOrd.Status == dto.ORDER_BUY || tOrd.Status == dto.ORDER_IDLE {
 				order.Status = "IDLE"
 				symbols = append(symbols, tOrd.Symbol)
+				if tOrd.Status == dto.ORDER_BUY {
+					statDto.BuyOrders = statDto.BuyOrders + 1
+				}
 			}
 
 			if tOrd.Status == dto.ORDER_BUY || tOrd.Status == dto.ORDER_SELL {

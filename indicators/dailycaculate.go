@@ -1,6 +1,7 @@
 package indicators
 
 import (
+	"math/big"
 	"strings"
 
 	"taiyigo.com/common"
@@ -9,9 +10,9 @@ import (
 )
 
 var (
-	UPLIMIT_LEVEL   = 0.095
-	DOWNLIMIT_LEVEL = -0.095
-	DAY_TOP_TOTAL   = 50
+	UPLIMIT_LEVEL   = 9.5
+	DOWNLIMIT_LEVEL = -9.5
+	DAY_TOP_TOTAL   = 25
 )
 
 type DayBoradCal struct {
@@ -65,8 +66,8 @@ func (ndbc *NameDashBoradCal) Save() {
 
 func newDashBoardV1(day string) *tstock.DashBoardV1 {
 	dbdv := &tstock.DashBoardV1{Day: day, Top20Vol: make([]*tstock.TopSymbol, DAY_TOP_TOTAL)}
-	dbdv.DownLimit = make([]string, 0, 100)
-	dbdv.UpLimit = make([]string, 0, 100)
+	dbdv.DownLimit = make([]*tstock.SymbolRate, 0)
+	dbdv.UpLimit = make([]*tstock.SymbolRate, 0)
 	return dbdv
 }
 
@@ -83,16 +84,16 @@ func (dbc *DayBoradCal) SetTop() {
 }
 
 func (dbc *DayBoradCal) Cal(day string, symbol string, candle *tstock.Candle) {
-	diff := (candle.Close - candle.Open) / candle.Open
-	if diff < 0 {
+	symbolRate := &tstock.SymbolRate{Symbol: symbol, Close: candle.Close, PreClose: candle.PreClose, Rate: candle.Pcg}
+	if candle.Pcg < 0 {
 		dbc.dbdv.DownStocks = dbc.dbdv.DownStocks + 1
-		if diff <= DOWNLIMIT_LEVEL {
-			dbc.dbdv.DownLimit = append(dbc.dbdv.DownLimit, symbol)
+		if candle.Pcgp <= DOWNLIMIT_LEVEL {
+			dbc.dbdv.DownLimit = append(dbc.dbdv.DownLimit, symbolRate)
 		}
-	} else if diff > 0 {
+	} else if candle.Pcg > 0 {
 		dbc.dbdv.UpStocks = dbc.dbdv.UpStocks + 1
-		if diff >= UPLIMIT_LEVEL {
-			dbc.dbdv.UpLimit = append(dbc.dbdv.UpLimit, symbol)
+		if candle.Pcgp >= UPLIMIT_LEVEL {
+			dbc.dbdv.UpLimit = append(dbc.dbdv.UpLimit, symbolRate)
 		}
 	}
 	dbc.dbdv.TotalAmount += candle.Amount
@@ -101,14 +102,10 @@ func (dbc *DayBoradCal) Cal(day string, symbol string, candle *tstock.Candle) {
 	nv := &tstock.TopSymbol{Name: symbol, Vol: float64(candle.Volume), Open: candle.Open, Close: candle.Close}
 	if dbc.hp == nil {
 		dbc.hp = common.NewLp(DAY_TOP_TOTAL, func(a1, a2 any) int {
-			v1 := uint32(a1.(*tstock.TopSymbol).Vol)
-			v2 := uint32(a2.(*tstock.TopSymbol).Vol)
-			if v1 < v2 {
-				return -1
-			} else if v1 == v2 {
-				return 0
-			}
-			return 1
+			v1 := a1.(*tstock.TopSymbol).Vol
+			v2 := a2.(*tstock.TopSymbol).Vol
+			diff := big.NewFloat(v1).Cmp(big.NewFloat(v2))
+			return diff
 		})
 	}
 	dbc.hp.Add(nv)
