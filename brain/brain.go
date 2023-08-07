@@ -21,6 +21,7 @@ type Topic struct {
 }
 
 var gBrain *Brain
+var gTracheHour = -1
 
 type Brain struct {
 	topic map[string]*Topic
@@ -55,29 +56,41 @@ func brainWork(br *Brain, c chan int) {
 	common.Logger.Infof("brainWork started")
 	sList := getSignalList()
 	for !isStop {
+		hour := time.Now().Hour()
+		isTrace := (gTracheHour != hour)
+		if isTrace {
+			common.Logger.Infof("brainWork poll begin")
+			gTracheHour = hour
+		}
 		select {
 		case res := <-c:
 			common.Logger.Infof("Get signal:%d", res)
 			isStop = true
 		case <-time.After(5 * time.Second):
-			poll(sList)
+			poll(isTrace, sList)
+		}
+		if isTrace {
+			common.Logger.Infof("brainWork poll over")
 		}
 	}
 	common.Logger.Infof("brainWork stopped")
 }
 
-func poll(sList *list.List) {
+func poll(isTrace bool, sList *list.List) {
 	for front := sList.Front(); front != nil; {
 		bs := front.Value.(brainsign)
+		old := front
+		front = front.Next()
 		if !bs.isTimeTo() {
 			continue
 		}
 		bs.doSign()
-		old := front
-		front = front.Next()
 		if bs.isOnce() {
 			sList.Remove(old)
 		}
+	}
+	if isTrace {
+		common.Logger.Infof("size:%d", sList.Len())
 	}
 }
 
