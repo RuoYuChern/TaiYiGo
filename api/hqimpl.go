@@ -57,16 +57,16 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 			continue
 		}
 		candle := ts.Get(off)
-		period := time.Unix(int64(candle.Period/1000), 0)
+		period := time.UnixMilli(int64(candle.Period))
 		tdata[off-startOff] = &dto.SymbolDaily{Day: common.GetDay(common.YYYYMMDD, period), Open: candle.Open, Close: candle.Close}
 		tdata[off-startOff].High = candle.High
 		tdata[off-startOff].Low = candle.Low
-		tdata[off-startOff].Vol = common.FFloat(float64(candle.Volume)/10000, 3)
+		tdata[off-startOff].Vol = common.FFloat(float64(candle.Volume)/WAN, 3)
 		tdata[off-startOff].Hld = common.FFloat(candle.High-candle.Low, 2)
 		tdata[off-startOff].LSma = lsma.Calculate(off).FormatFloat(2)
 		tdata[off-startOff].SSma = ssma.Calculate(off).FormatFloat(2)
 		tdata[off-startOff].Mtm = mnt.Calculate(off).FormatFloat(2)
-		tdata[off-startOff].FundIn = common.FFloat(float64(candle.Volume)*(candle.Close-candle.PreClose)/10000, 3)
+		tdata[off-startOff].FundIn = common.FFloat(float64(candle.Volume)*(candle.Close-candle.PreClose)/WAN, 3)
 	}
 	return tdata, nil
 }
@@ -219,11 +219,27 @@ func getLatestHot(day string) ([]*dto.HotItem, error) {
 		common.Logger.Infof("No data")
 		return nil, errors.New("no data")
 	}
-	data := make([]*dto.HotItem, 0)
+	total := len(dbv.Top20Vol)
+	lp := common.NewLp(total+1, func(a1, a2 any) int {
+		v1 := int64(a1.(*tstock.TopSymbol).Vol)
+		v2 := int64(a2.(*tstock.TopSymbol).Vol)
+		diff := int(v1 - v2)
+		return diff
+	})
 	for _, dv := range dbv.Top20Vol {
-		hi := &dto.HotItem{Symbol: dv.Name, Day: dbv.Day, Vol: dv.Vol, Open: dv.Open, Close: dv.Close}
-		hi.Name = infra.GetSymbolName(hi.Symbol)
-		data = append(data, hi)
+		lp.Add(dv)
+	}
+
+	data := make([]*dto.HotItem, total)
+	for off := total; off > 0; off-- {
+		tv := lp.Top()
+		if tv == nil {
+			break
+		}
+		dv := tv.(*tstock.TopSymbol)
+		idx := off - 1
+		data[idx] = &dto.HotItem{Symbol: dv.Name, Day: dbv.Day, Vol: dv.Vol, Open: dv.Open, Close: dv.Close}
+		data[idx].Name = infra.GetSymbolName(data[idx].Symbol)
 	}
 	return data, nil
 }

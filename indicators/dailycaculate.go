@@ -1,7 +1,6 @@
 package indicators
 
 import (
-	"math/big"
 	"strings"
 
 	"taiyigo.com/common"
@@ -12,7 +11,7 @@ import (
 var (
 	UPLIMIT_LEVEL   = 9.5
 	DOWNLIMIT_LEVEL = -9.5
-	DAY_TOP_TOTAL   = 25
+	DAY_TOP_TOTAL   = 50
 )
 
 type DayBoradCal struct {
@@ -102,11 +101,11 @@ func (dbc *DayBoradCal) Cal(day string, symbol string, candle *tstock.Candle) {
 	nv := &tstock.TopSymbol{Name: symbol, Vol: float64(candle.Volume), Open: candle.Open, Close: candle.Close}
 	if dbc.hp == nil {
 		dbc.hp = common.NewLp(DAY_TOP_TOTAL, func(a1, a2 any) int {
-			v1 := a1.(*tstock.TopSymbol).Vol
-			v2 := a2.(*tstock.TopSymbol).Vol
-			diff := big.NewFloat(v1).Cmp(big.NewFloat(v2))
+			v1 := int64(a1.(*tstock.TopSymbol).Vol)
+			v2 := int64(a2.(*tstock.TopSymbol).Vol)
+			diff := int(v1 - v2)
 			return diff
 		})
 	}
-	dbc.hp.Add(nv)
+	dbc.hp.AddAndTrace(nv, func(flag string, v, old any) {})
 }

@@ -126,8 +126,11 @@ func SubString(source string, start int, end int) string {
 	if (start == 0) && (end == length) {
 		return source
 	}
-
 	var r = []rune(source)
+	rl := len(r)
+	if end > len(r) {
+		end = rl
+	}
 	return string(r[start:end])
 }
 

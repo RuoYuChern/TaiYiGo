@@ -15,6 +15,7 @@ func tradingStat(c *gin.Context) {
 	rsp := &dto.TradingStatRsp{Code: http.StatusOK, Msg: "OK"}
 	data, err := doGetTradingStat()
 	if err != nil {
+		common.Logger.Infof("tradingStat failed:%s", err)
 		rsp.Code = http.StatusInternalServerError
 		rsp.Msg = err.Error()
 	} else {

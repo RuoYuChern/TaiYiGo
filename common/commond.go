@@ -56,10 +56,26 @@ func (lp *LimitedHeap) Add(v any) {
 		heap.Push(lp, v)
 		return
 	}
-	if lp.lcmp(v, lp.hp[lp.hpL-1]) <= 0 {
+	if lp.lcmp(v, lp.hp[0]) <= 0 {
 		return
 	} else {
 		heap.Pop(lp)
 		heap.Push(lp, v)
+	}
+}
+
+func (lp *LimitedHeap) AddAndTrace(v any, trace func(flag string, v any, old any)) {
+	if lp.hpL < lp.size {
+		heap.Push(lp, v)
+		trace("put", v, nil)
+		return
+	}
+	if lp.lcmp(v, lp.hp[0]) <= 0 {
+		trace("reject", v, lp.hp[0])
+		return
+	} else {
+		old := heap.Pop(lp)
+		heap.Push(lp, v)
+		trace("pop", v, old)
 	}
 }

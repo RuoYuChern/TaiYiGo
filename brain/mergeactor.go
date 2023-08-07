@@ -42,7 +42,6 @@ func (jst *JustifyStat) Action() {
 		return
 	}
 	ndbc := indicators.NewNDbc()
-	isLogger := false
 	for _, basic := range cnList.CnBasicList {
 		cnShareLastDay, err := infra.GetByKey(infra.CONF_TABLE, basic.Symbol)
 		if err != nil {
@@ -57,23 +56,13 @@ func (jst *JustifyStat) Action() {
 			common.Logger.Infof("Symbol %s,between [%s, %s] error:%s", basic.Symbol, jst.StartDay, cnShareLastDay, err.Error())
 			continue
 		}
+
 		common.Logger.Debugf("Symbol:%s, between [%s, %s], total:%d", basic.Symbol, jst.StartDay, cnShareLastDay, dlist.Len())
-		filter := make(map[string]bool, 0)
 		for f := dlist.Front(); f != nil; f = f.Next() {
 			candle := f.Value.(*tstock.Candle)
-			period := time.Unix(int64(candle.Period/1000), 0)
+			period := time.UnixMilli(int64(candle.Period))
 			day := common.GetDay(common.YYYYMMDD, period)
-			daySymbol := fmt.Sprintf("%s.%s", day, basic.Symbol)
-			_, ok := filter[daySymbol]
-			if !ok {
-				ndbc.Cal(day, basic.Symbol, candle)
-				filter[daySymbol] = true
-			} else {
-				if !isLogger {
-					common.Logger.Infof("%s is exist", daySymbol)
-					isLogger = true
-				}
-			}
+			ndbc.Cal(day, basic.Symbol, candle)
 		}
 	}
 	ndbc.Save()
