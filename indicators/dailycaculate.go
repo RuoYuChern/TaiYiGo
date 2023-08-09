@@ -83,7 +83,7 @@ func (dbc *DayBoradCal) SetTop() {
 }
 
 func (dbc *DayBoradCal) Cal(day string, symbol string, candle *tstock.Candle) {
-	symbolRate := &tstock.SymbolRate{Symbol: symbol, Close: candle.Close, PreClose: candle.PreClose, Rate: candle.Pcg}
+	symbolRate := &tstock.SymbolRate{Symbol: symbol, Close: candle.Close, PreClose: candle.PreClose, Rate: candle.Pcgp}
 	if candle.Pcg < 0 {
 		dbc.dbdv.DownStocks = dbc.dbdv.DownStocks + 1
 		if candle.Pcgp <= DOWNLIMIT_LEVEL {

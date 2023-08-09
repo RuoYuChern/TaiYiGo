@@ -336,26 +336,35 @@ func findLeft(dir string, offset int64, num int, ptmd *TsMetaData) (*tsdbLeftCur
 	totalOffset := int64(num-1) * gTID_LEN
 	leftCur := &tsdbLeftCursor{leftNum: num}
 	valueOffset := int64(ptmd.RefAddr) + offset
-	if totalOffset <= valueOffset {
+	if (totalOffset <= valueOffset) || (ptmd.Refblock == 0) {
 		leftCur.block = ptmd.Refblock
 		//通过相对便宜位置计算绝对位置
-		leftCur.offset = (valueOffset - totalOffset)
+		if valueOffset >= totalOffset {
+			leftCur.offset = (valueOffset - totalOffset)
+		} else {
+			leftCur.offset = 0
+		}
 		common.Logger.Debugf("From [%d,%d] To [%d,%d]", leftCur.block, leftCur.offset, ptmd.Refblock, valueOffset)
 		return leftCur, nil
 	}
 	totalOffset -= valueOffset
 	leftBlock := ptmd.Refblock
 	for leftBlock > 0 {
-		name := fmt.Sprintf(gIDX_FILE_TPL, dir, (leftBlock - 1))
+		curBlock := (leftBlock - 1)
+		name := fmt.Sprintf(gIDX_FILE_TPL, dir, curBlock)
 		tsfm := newMapper(name, gINDEX_FILE_SIZE)
 		if err := tsfm.open(os.O_RDONLY, 0755); err != nil {
 			common.Logger.Infof("open %s failed:%s", name, err)
 			tsfm.close()
 			return nil, err
 		}
-		if totalOffset <= tsfm.size {
-			leftCur.block = (leftBlock - 1)
-			leftCur.offset = (tsfm.size - totalOffset)
+		if (totalOffset <= tsfm.size) || (curBlock == 0) {
+			leftCur.block = curBlock
+			if totalOffset <= tsfm.size {
+				leftCur.offset = (tsfm.size - totalOffset)
+			} else {
+				leftCur.offset = 0
+			}
 			common.Logger.Infof("From [%d,%d] To [%d,%d]", leftCur.block, leftCur.offset, ptmd.Refblock, valueOffset)
 			tsfm.close()
 			return leftCur, nil
@@ -364,7 +373,7 @@ func findLeft(dir string, offset int64, num int, ptmd *TsMetaData) (*tsdbLeftCur
 		totalOffset -= tsfm.size
 		leftBlock -= 1
 	}
-	common.Logger.Debugf("Start refblock:%d, leftBlock:%d, totalOffset:%d", ptmd.Refblock, leftBlock, totalOffset)
+	common.Logger.Infof("Start refblock:%d, leftBlock:%d, totalOffset:%d", ptmd.Refblock, leftBlock, totalOffset)
 	return nil, gIsEmpty
 }
 

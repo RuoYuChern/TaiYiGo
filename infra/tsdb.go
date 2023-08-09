@@ -444,7 +444,7 @@ func (tsq *TsdbQuery) findTidOff(value uint64, number int) error {
 				common.Logger.Infof("tmd is over: %d > %d", ptmd.Start, end)
 				break
 			}
-			common.Logger.Debugf("start = %d, find ptmd = [%d, %d, Refblock:%d, Refitems:%d]", value, ptmd.Start, ptmd.End,
+			common.Logger.Infof("start = %d, find ptmd = [%d, %d, Refblock:%d, Refitems:%d]", value, ptmd.Start, ptmd.End,
 				ptmd.Refblock, ptmd.Refitems)
 			rightPtmd = ptmd
 			break
@@ -479,8 +479,9 @@ func (tsq *TsdbQuery) loadNData(value uint64, number int) (*list.List, error) {
 		err := tsfMap.open(os.O_RDONLY, 0755)
 		if err != nil {
 			tsfMap.close()
-			common.Logger.Infof("open %s failed:%s", name, err.Error())
-			return nil, err
+			// common.Logger.Infof("open %s failed:%s", name, err.Error())
+			// return nil, err
+			break
 		}
 		offset, err := loadNData(tsq.dir, tsfMap, tsq.left, value, outList)
 		if err != nil {
@@ -493,13 +494,13 @@ func (tsq *TsdbQuery) loadNData(value uint64, number int) (*list.List, error) {
 			common.Logger.Infof("Read block=%d,at off=%d, failed:%s", tsq.left.block, tsq.left.offset, err)
 			return nil, err
 		}
+		readOff = outList.Len()
+		tsq.left.leftNum -= readOff
 		tsq.left.offset = offset
 		if tsq.left.offset >= tsfMap.size {
 			tsq.left.block = tsq.left.block + 1
 			tsq.left.offset = 0
 		}
-		readOff = outList.Len()
-		tsq.left.leftNum -= readOff
 		tsfMap.close()
 	}
 	return outList, nil
