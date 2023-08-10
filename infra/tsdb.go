@@ -444,7 +444,7 @@ func (tsq *TsdbQuery) findTidOff(value uint64, number int) error {
 				common.Logger.Infof("tmd is over: %d > %d", ptmd.Start, end)
 				break
 			}
-			common.Logger.Infof("start = %d, find ptmd = [%d, %d, Refblock:%d, Refitems:%d]", value, ptmd.Start, ptmd.End,
+			common.Logger.Debugf("start = %d, find ptmd = [%d, %d, Refblock:%d, Refitems:%d]", value, ptmd.Start, ptmd.End,
 				ptmd.Refblock, ptmd.Refitems)
 			rightPtmd = ptmd
 			break

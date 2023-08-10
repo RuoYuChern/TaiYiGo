@@ -41,6 +41,9 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 	if datLen == 0 {
 		return nil, errors.New("not found")
 	}
+	if datLen <= 10 {
+		return nil, errors.New("not enough data")
+	}
 	ts := indicators.NewTimeSeries(dataList)
 	lsma := indicators.NewSimpleMovingAverage(ts, indicators.GetClose, 10)
 	ssma := indicators.NewSimpleMovingAverage(ts, indicators.GetClose, 8)
