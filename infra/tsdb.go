@@ -469,7 +469,7 @@ func (tsq *TsdbQuery) findTidOff(value uint64, number int) error {
 
 func (tsq *TsdbQuery) loadNData(value uint64, number int) (*list.List, error) {
 	if tsq.left.leftNum <= 0 {
-		return nil, nil
+		return nil, gIsEmpty
 	}
 	outList := list.New()
 	readOff := 0
@@ -508,7 +508,7 @@ func (tsq *TsdbQuery) loadNData(value uint64, number int) (*list.List, error) {
 
 func (tsq *TsdbQuery) loadData(start uint64, end uint64, offset int) (*list.List, error) {
 	if tsq.tidx.itemList.Len() == 0 {
-		return nil, nil
+		return nil, gIsEmpty
 	}
 	datList := list.New()
 	lessNum := 0
@@ -671,7 +671,7 @@ func (tsq *TsdbQuery) findTmdOff(start uint64, end uint64) error {
 			}
 			if end < ptmd.Start {
 				// 设置读完
-				common.Logger.Infof("tmd is over: %d > %d", ptmd.Start, end)
+				common.Logger.Debugf("tmd is over: %d > %d", ptmd.Start, end)
 				tsq.ttmd.isEof = true
 				break
 			}

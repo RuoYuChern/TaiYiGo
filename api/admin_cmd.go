@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tao/faststore"
+	"github.com/tao/faststore/api"
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/brain"
 	"taiyigo.com/common"
@@ -33,6 +35,10 @@ type tsdbRedo struct {
 	tda *infra.TsdbAppender
 }
 
+type tsdbMigrate struct {
+	common.Actor
+}
+
 func (actor *loadCnBasciActor) Action() {
 	common.Logger.Infof("basic loading ......")
 	if actor.cmd.Opt != "LOAD" {
@@ -58,7 +64,6 @@ func (actor *loadHistoryActor) Action() {
 		common.Logger.Infof("cmd:%s is error", actor.cmd.Opt)
 		return
 	}
-	//now := common.GetDay(common.YYYYMMDD, time.Now())
 	now := common.Conf.Quotes.HistoryEnd
 	if actor.cmd.Value != "FORCE" {
 		b, err := infra.CheckAndSet(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY, now)
@@ -79,8 +84,8 @@ func (actor *loadHistoryActor) Action() {
 		return
 	}
 
-	// datRang := []yearItems{{"20200101", "20201231"}, {"20210101", "20211231"}, {"20220101", "20221231"}, {"20230101", now}}
-	datRang := []yearItems{{"20230101", now}}
+	datRang := []yearItems{{"20200101", "20201231"}, {"20210101", "20211231"}, {"20220101", "20221231"}, {"20230101", now}}
+	// datRang := []yearItems{{"20230101", now}}
 	cnShareStatus := make(map[string]string)
 	timeStart := time.Now()
 	for _, v := range datRang {
@@ -140,4 +145,49 @@ func (tsd *tsdbRedo) Action() {
 		infra.Gettsdb().CloseAppender(tsd.tda)
 	}
 	common.Logger.Infof("redo over")
+}
+
+func (m *tsdbMigrate) Action() {
+	common.Logger.Infof("migrate action ......")
+	cnList := &tstock.CnBasicList{}
+	err := infra.GetCnBasic(cnList)
+	if err != nil {
+		common.Logger.Infof("GetCnBasic failed:%s", err)
+		return
+	}
+	datRang := []yearItems{{"20200101", "20201231"}, {"20210101", "20211231"}, {"20220101", "20221231"}, {"20230101", "20230819"}}
+	isFaild := false
+	common.Logger.Infof("migrate start......")
+	dlg := faststore.FsTsdbLogGet("cnshares")
+	for _, cn := range cnList.CnBasicList {
+		call := faststore.FsTsdbGet("cnshares", cn.Symbol)
+		for _, dr := range datRang {
+			datas, err := infra.GetDataDayBetween(cn.Symbol, dr.start, dr.end, 0)
+			if err != nil {
+				common.Logger.Debugf("Get symbol=%s, failed:%s", cn.Symbol, err)
+				continue
+			}
+			for f := datas.Front(); f != nil; f = f.Next() {
+				value := f.Value.(*tsdb.TsdbData)
+				fv := api.FstTsdbValue{Timestamp: int64(value.Timestamp), Data: value.Data}
+				err = call.Append(&fv)
+				dlg.Append(cn.Symbol, &fv)
+				if err != nil {
+					key := common.GetDay(common.YYYYMMDD, time.UnixMilli(int64(value.Timestamp)))
+					common.Logger.Infof("migreate symbol=%s,key=%s, failed:%s", cn.Symbol, key, err)
+					isFaild = true
+					break
+				}
+			}
+			if isFaild {
+				break
+			}
+		}
+		call.Close()
+		if isFaild {
+			break
+		}
+	}
+	dlg.Close()
+	common.Logger.Infof("migrate over")
 }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/tao/faststore"
+	fapi "github.com/tao/faststore/api"
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
 	"taiyigo.com/facade/dto"
@@ -265,6 +267,20 @@ func GetUnFinishOrders() *list.List {
 	return orders
 }
 
+func GetDataDayBetween(symbol, low, high string, offset int) (*list.List, error) {
+	start, _ := common.ToDay(common.YYYYMMDD, low)
+	end, _ := common.ToDay(common.YYYYMMDD, high)
+	tsd := Gettsdb()
+	tql := tsd.OpenQuery(symbol)
+	datList, err := tql.GetRange(uint64(start.UnixMilli()), uint64(end.UnixMilli()), offset)
+	tsd.CloseQuery(tql)
+	tsd.Close()
+	if err != nil {
+		return nil, err
+	}
+	return datList, nil
+}
+
 func GetDayBetween(symbol, low, high string, offset int) (*list.List, error) {
 	start, _ := common.ToDay(common.YYYYMMDD, low)
 	end, _ := common.ToDay(common.YYYYMMDD, high)
@@ -288,6 +304,32 @@ func GetDayBetween(symbol, low, high string, offset int) (*list.List, error) {
 		candleList.PushBack(candle)
 	}
 	return candleList, nil
+}
+
+func FGetSymbolNPoint(symbol, date string, n int) ([]*tstock.Candle, error) {
+	lastTime, err := common.ToDay(common.YYYYMMDD, date)
+	if err != nil {
+		return nil, err
+	}
+	call := faststore.FsTsdbGet("cnshares", symbol)
+	datList, err := call.GetLastN(lastTime.UnixMilli(), n)
+	call.Close()
+	if err != nil {
+		return nil, err
+	}
+	items := make([]*tstock.Candle, datList.Len())
+	off := 0
+	for front := datList.Front(); front != nil; front = front.Next() {
+		items[off] = &tstock.Candle{}
+		value := front.Value.(*fapi.FstTsdbValue)
+		err = proto.Unmarshal(value.Data, items[off])
+		if err != nil {
+			common.Logger.Warnf("Unmarshal failed:%s", err)
+			return nil, err
+		}
+		off++
+	}
+	return items, err
 }
 
 func GetSymbolNPoint(symbol, date string, n int) ([]*tstock.Candle, error) {

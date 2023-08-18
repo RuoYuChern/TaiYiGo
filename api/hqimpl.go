@@ -32,7 +32,7 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 		return nil, err
 	}
 
-	dataList, err := infra.GetSymbolNPoint(symbol, lastDay, MAX_GET_LEN)
+	dataList, err := infra.FGetSymbolNPoint(symbol, lastDay, MAX_GET_LEN)
 	if err != nil {
 		common.Logger.Infof("GetSymbolNPoint failed: %s", err)
 		return nil, err
@@ -75,7 +75,7 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 }
 
 func getStockNPoint(symbol string, lastDay string, num int) ([]*dto.CnDaily, error) {
-	dataList, err := infra.GetSymbolNPoint(symbol, lastDay, num)
+	dataList, err := infra.FGetSymbolNPoint(symbol, lastDay, num)
 	if err != nil {
 		common.Logger.Infof("GetSymbolNPoint failed: %s", err)
 		return nil, err

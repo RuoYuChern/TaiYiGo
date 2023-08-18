@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tao/faststore"
+	"github.com/tao/faststore/api"
 	"go.uber.org/ratelimit"
 	"google.golang.org/protobuf/proto"
 	"taiyigo.com/common"
@@ -48,6 +50,7 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 			continue
 		}
 		tbl := tsDb.OpenAppender(cnBasic.Symbol)
+		call := faststore.FsTsdbGet("cnshares", cnBasic.Symbol)
 		for dOff := 0; dOff < total; dOff++ {
 			dailyInfo := daily[dOff]
 			candle := infra.ToCandle(dailyInfo)
@@ -67,6 +70,7 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 				return 0, err
 			}
 			tsData := &tsdb.TsdbData{Timestamp: candle.Period, Data: out}
+			fv := api.FstTsdbValue{Timestamp: int64(candle.Period), Data: out}
 			err = tbl.Append(tsData)
 			if err != nil {
 				common.Logger.Warnf("Save symbol:%s, range[%s,%s],failed:%s", cnBasic.Symbol, startDay, highDay, err)
@@ -75,12 +79,14 @@ func LoadSymbolDaily(cnList *tstock.CnBasicList, lowDay string, highDay string, 
 				tdlg.Close()
 				return 0, err
 			}
+			call.Append(&fv)
 			ndbc.Cal(dailyInfo.Day, dailyInfo.Symbol, candle)
 			sbdl := infra.ToDaily(dailyInfo)
 			tdlg.Append(dailyInfo.Day, sbdl)
 			cnShareStatus[dailyInfo.Symbol] = dailyInfo.Day
 		}
 		tsDb.CloseAppender(tbl)
+		call.Close()
 	}
 	ndbc.Save()
 	tdlg.Close()
