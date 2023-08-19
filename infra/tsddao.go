@@ -306,6 +306,29 @@ func GetDayBetween(symbol, low, high string, offset int) (*list.List, error) {
 	return candleList, nil
 }
 
+func FGetDayBetween(symbol, low, high string, offset int) (*list.List, error) {
+	start, _ := common.ToDay(common.YYYYMMDD, low)
+	end, _ := common.ToDay(common.YYYYMMDD, high)
+	call := faststore.FsTsdbGet("cnshares", symbol)
+	datList, err := call.GetBetween(start.UnixMilli(), end.UnixMilli(), offset)
+	call.Close()
+	if err != nil {
+		return nil, err
+	}
+	candleList := list.New()
+	for front := datList.Front(); front != nil; front = front.Next() {
+		candle := &tstock.Candle{}
+		value := front.Value.(*fapi.FstTsdbValue)
+		err = proto.Unmarshal(value.Data, candle)
+		if err != nil {
+			common.Logger.Warnf("Unmarshal failed:%s", err)
+			return nil, err
+		}
+		candleList.PushBack(candle)
+	}
+	return candleList, nil
+}
+
 func FGetSymbolNPoint(symbol, date string, n int) ([]*tstock.Candle, error) {
 	lastTime, err := common.ToDay(common.YYYYMMDD, date)
 	if err != nil {

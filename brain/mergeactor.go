@@ -51,7 +51,7 @@ func (jst *JustifyStat) Action() {
 			continue
 		}
 
-		dlist, err := infra.GetDayBetween(basic.Symbol, jst.StartDay, cnShareLastDay, 0)
+		dlist, err := infra.FGetDayBetween(basic.Symbol, jst.StartDay, cnShareLastDay, 0)
 		if err != nil {
 			common.Logger.Infof("Symbol %s,between [%s, %s] error:%s", basic.Symbol, jst.StartDay, cnShareLastDay, err.Error())
 			continue

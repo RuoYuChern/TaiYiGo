@@ -244,7 +244,7 @@ func (act *ForwardFlow) Action() {
 			if stf.Opt != "BUY" {
 				continue
 			}
-			dat, err := infra.GetDayBetween(stf.Symbol, day, hqDay, 0)
+			dat, err := infra.FGetDayBetween(stf.Symbol, day, hqDay, 0)
 			if err != nil {
 				common.Logger.Infof("Get %s between [%s,%s], failed:%s", stf.Symbol, day, hqDay, err)
 				continue
