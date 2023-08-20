@@ -53,6 +53,8 @@ func adminCommond(c *gin.Context) {
 		brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &brain.JustifyStat{StartDay: cmd.Value})
 	} else if cmd.Cmd == "stfl" {
 		brain.GetBrain().Subscript(brain.TOPIC_STF, &brain.FlowStart{})
+	} else if cmd.Cmd == "find" {
+		brain.GetBrain().Subscript(brain.TOPIC_STF, &brain.SignalFindRange{StartDay: cmd.Value})
 	} else if cmd.Cmd == "tsdb" {
 		brain.GetBrain().Subscript(brain.TOPIC_ADMIN, &tsdbRedo{})
 	} else if cmd.Cmd == "migrate" {

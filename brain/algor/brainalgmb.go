@@ -1,11 +1,17 @@
 package algor
 
 import (
+	"math"
 	"strings"
 
 	"taiyigo.com/facade/tstock"
 	"taiyigo.com/indicators"
 )
+
+type bValueIndex struct {
+	value    float32
+	position int
+}
 
 func (macd *Macd) Name() string {
 	return "mac"
@@ -72,5 +78,54 @@ func (boll *Boll) TAnalyze(dat []*tstock.Candle) (bool, string) {
 }
 
 func (macd *Boll) FAnalyze(dat []*tstock.Candle) (bool, string) {
+	return false, ""
+}
+
+func (ta *VolPrice) TAnalyze(dat []*tstock.Candle) (bool, string) {
+	total := len(dat)
+	if total < (ta.windows + ta.tWnd) {
+		return false, "vp"
+	}
+	offset := (total - ta.windows - ta.tWnd)
+	maxVol := bValueIndex{value: 0, position: 0}
+	minVol := bValueIndex{value: math.MaxFloat32, position: 0}
+	maxClose := bValueIndex{value: 0, position: 0}
+	for off := 0; off < ta.windows; off++ {
+		candle := dat[off+offset]
+		if candle.Volume > uint32(maxVol.value) {
+			maxVol.value = float32(candle.Volume)
+			maxVol.position = off
+		}
+		if candle.Volume < uint32(minVol.value) {
+			minVol.value = float32(candle.Volume)
+			minVol.position = off
+		}
+		if candle.Close > float64(maxClose.value) {
+			maxClose.value = float32(candle.Close)
+			maxClose.position = off
+		}
+	}
+	testAvgVol := float32(0)
+	testAvgClose := float64(0)
+	for off := 0; off < ta.tWnd; off++ {
+		candle := dat[off+ta.windows+offset]
+		testAvgVol += float32(candle.Volume)
+		testAvgClose += candle.Close
+	}
+	testAvgVol = testAvgVol / float32(ta.tWnd)
+	testAvgClose = testAvgClose / float64(ta.tWnd)
+	if maxClose.value > float32(2*testAvgClose) && maxClose.position <= (total-100) {
+		return true, BUY
+	}
+	if testAvgVol >= 3*maxVol.value {
+		return true, BUY
+	}
+	if testAvgVol > 1.5*maxVol.value && testAvgClose > float64(maxClose.value) {
+		return true, BUY
+	}
+	return false, ""
+}
+
+func (ta *VolPrice) FAnalyze(dat []*tstock.Candle) (bool, string) {
 	return false, ""
 }

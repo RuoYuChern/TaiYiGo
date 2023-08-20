@@ -5,15 +5,18 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
 	"taiyigo.com/brain/algor"
 	"taiyigo.com/common"
 	"taiyigo.com/facade/dto"
-	"taiyigo.com/facade/tsdb"
 	"taiyigo.com/facade/tsorder"
 	"taiyigo.com/facade/tstock"
 	"taiyigo.com/infra"
 )
+
+type SignalFindRange struct {
+	common.Actor
+	StartDay string
+}
 
 type FlowStart struct {
 	common.Actor
@@ -86,8 +89,8 @@ func doBuy(tOrd *tsorder.TOrder, priceMap map[string]*infra.CnStockPrice) {
 		}
 	}
 	diff := time.Since(orderDay)
-	days := 10.0
-	if (diff.Hours() / 24) < days {
+	days := common.Conf.Brain.MaxBuyDays
+	if int(diff.Hours()/24) < days {
 		return
 	}
 	tOrd.Status = dto.ORDER_CANCLE
@@ -117,8 +120,8 @@ func doSell(tOrd *tsorder.TOrder, priceMap map[string]*infra.CnStockPrice) {
 	}
 
 	diff := time.Since(orderDay)
-	days := 10.0
-	if (diff.Hours() / 24) < days {
+	days := common.Conf.Brain.MaxSellDays
+	if int(diff.Hours()/24) < days {
 		return
 	}
 
@@ -130,6 +133,7 @@ func doSell(tOrd *tsorder.TOrder, priceMap map[string]*infra.CnStockPrice) {
 }
 
 func (fs *FlowStart) Action() {
+	common.Logger.Infof("FlowStart started")
 	cnList := &tstock.CnBasicList{}
 	err := infra.GetCnBasic(cnList)
 	if err != nil {
@@ -141,60 +145,52 @@ func (fs *FlowStart) Action() {
 		common.Logger.Infof("GetByKey failed: %s", err)
 		return
 	}
-
-	dayTime, err := common.ToDay(common.YYYYMMDD, lastDay)
+	err = doFind(lastDay, cnList)
 	if err != nil {
-		common.Logger.Infof("%s ToDay failed: %s", lastDay, err)
+		common.Logger.Infof("doFind failed: %s", err)
 		return
 	}
-	common.Logger.Infof("Think for day:%s start", lastDay)
-	algs := algor.GetAlgList()
-	stfList := tstock.StfList{Numbers: 0, Stfs: make([]*tstock.StfInfo, 0)}
-	for _, basic := range cnList.GetCnBasicList() {
-		if common.FillteST(basic.Name) {
+	GetBrain().Subscript(TOPIC_STF, &MergeSTF{})
+	common.Logger.Infof("FlowStart over")
+}
+
+func (act *SignalFindRange) Action() {
+	common.Logger.Infof("Find started")
+	startTime, err := common.ToDay(common.YYYYMMDD, act.StartDay)
+	if err != nil {
+		common.Logger.Infof("%s ToDay failed: %s", act.StartDay, err)
+		return
+	}
+	lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
+	if err != nil {
+		common.Logger.Infof("GetByKey failed: %s", err)
+		return
+	}
+	endTime, _ := common.ToDay(common.YYYYMMDD, lastDay)
+	cnList := &tstock.CnBasicList{}
+	err = infra.GetCnBasic(cnList)
+	if err != nil {
+		common.Logger.Infof("GetCnBasic failed: %s", err)
+		return
+	}
+	curTime := startTime
+	for curTime.Compare(endTime) <= 0 {
+		wday := curTime.Weekday()
+		if wday == time.Saturday || wday == time.Sunday {
+			curTime = curTime.Add(24 * time.Hour)
 			continue
 		}
-		tql := infra.Gettsdb().OpenQuery(basic.Symbol)
-		out, err := tql.GetPointN(uint64(dayTime.UnixMilli()), common.Conf.Brain.StfPriceCount)
-		infra.Gettsdb().CloseQuery(tql)
+		lastDay := common.GetDay(common.YYYYMMDD, curTime)
+		common.Logger.Infof("Find day=%s started", lastDay)
+		err = doFind(lastDay, cnList)
 		if err != nil {
-			if !infra.IsEmpty(err) {
-				common.Logger.Warnf("%s GetPointN failed:%s", basic.Symbol, err)
-				break
-			}
-			continue
+			common.Logger.Infof("Find day=%s failed:%s", lastDay, err)
 		}
-		//转成candle
-		candles := make([]*tstock.Candle, out.Len())
-		off := 0
-		for f := out.Front(); f != nil; f = f.Next() {
-			candles[off] = &tstock.Candle{}
-			dat := f.Value.(*tsdb.TsdbData)
-			err = proto.Unmarshal(dat.Data, candles[off])
-			if err != nil {
-				common.Logger.Infof("Unmarshal:%s", err)
-				return
-			}
-			off++
-		}
-		for front := algs.Front(); front != nil; front = front.Next() {
-			think := front.Value.(algor.ThinkAlg)
-			b, o := think.TAnalyze(candles)
-			if b {
-				stf := &tstock.StfInfo{Symbol: basic.Symbol, Status: "S", Name: basic.Name, Opt: o, Day: uint64(dayTime.UnixMilli())}
-				stfList.Stfs = append(stfList.Stfs, stf)
-				break
-			}
-		}
+		curTime = curTime.Add(24 * time.Hour)
 	}
-	common.Logger.Infof("Think for day:%s over, find:%d", lastDay, len(stfList.Stfs))
-	if len(stfList.Stfs) > 0 {
-		err = infra.SaveStfList("S", lastDay, &stfList)
-		if err != nil {
-			common.Logger.Infof("Save day %s failed:%s", lastDay, err)
-		}
-		GetBrain().Subscript(TOPIC_STF, &MergeSTF{})
-	}
+
+	GetBrain().Subscript(TOPIC_STF, &MergeSTF{})
+	common.Logger.Infof("Find over")
 }
 
 func (act *ForwardFlow) Action() {
@@ -312,4 +308,49 @@ func (act *ForwardFlow) Action() {
 	if newLowDay != "" {
 		infra.SetKeyValue(infra.CONF_TABLE, "forward.day", newLowDay)
 	}
+}
+
+func doFind(lastDay string, cnList *tstock.CnBasicList) error {
+	dayTime, err := common.ToDay(common.YYYYMMDD, lastDay)
+	if err != nil {
+		common.Logger.Infof("%s ToDay failed: %s", lastDay, err)
+		return err
+	}
+	common.Logger.Infof("Think for day:%s start", lastDay)
+	algs := algor.GetAlgList()
+	stfList := tstock.StfList{Numbers: 0, Stfs: make([]*tstock.StfInfo, 0)}
+	for _, basic := range cnList.GetCnBasicList() {
+		if common.FillteST(basic.Name) {
+			continue
+		}
+		candles, err := infra.FGetSymbolNPoint(basic.Symbol, lastDay, common.Conf.Brain.StfPriceCount)
+		if err != nil {
+			if !infra.IsEmpty(err) {
+				common.Logger.Warnf("%s GetPointN failed:%s", basic.Symbol, err)
+				break
+			}
+			continue
+		}
+		total := len(candles)
+		if candles[total-1].Period != uint64(dayTime.UnixMilli()) {
+			continue
+		}
+		for front := algs.Front(); front != nil; front = front.Next() {
+			think := front.Value.(algor.ThinkAlg)
+			b, o := think.TAnalyze(candles)
+			if b {
+				stf := &tstock.StfInfo{Symbol: basic.Symbol, Status: "S", Name: basic.Name, Opt: o, Day: uint64(dayTime.UnixMilli())}
+				stfList.Stfs = append(stfList.Stfs, stf)
+				break
+			}
+		}
+	}
+	common.Logger.Infof("Think for day:%s over, find:%d", lastDay, len(stfList.Stfs))
+	if len(stfList.Stfs) > 0 {
+		err = infra.SaveStfList("S", lastDay, &stfList)
+		if err != nil {
+			common.Logger.Infof("Save day %s failed:%s", lastDay, err)
+		}
+	}
+	return nil
 }

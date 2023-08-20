@@ -42,9 +42,15 @@ type kDJ struct {
 	tWnd    int
 }
 
+type VolPrice struct {
+	ThinkAlg
+	ts      *indicators.TimeSeries
+	windows int
+	tWnd    int
+}
+
 func GetAlgList() *list.List {
 	algs := list.New()
-	algs.PushBack(&Macd{highWd: 10, lowWd: 8, sWnd: 3, wadWd: 57, tWnd: 3})
-	algs.PushBack(&Boll{windows: 20, tWnd: 3})
+	algs.PushBack(&VolPrice{windows: 200, tWnd: 5})
 	return algs
 }

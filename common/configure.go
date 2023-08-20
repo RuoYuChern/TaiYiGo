@@ -38,6 +38,8 @@ type quotesConf struct {
 
 type brainConf struct {
 	StfPriceCount int `yaml:"stf-price-count"`
+	MaxBuyDays    int `yaml:"max-buy-days"`
+	MaxSellDays   int `yaml:"max-sell-days"`
 }
 
 type TaoConf struct {

@@ -115,14 +115,23 @@ func getSymbolPairTrend(c *gin.Context) {
 func getStfRecord(c *gin.Context) {
 	opt := c.Query("opt")
 	page := c.Query("page")
-	stfRecord := tstock.StfRecordList{}
-	err := infra.GetStfRecord(&stfRecord)
+	orderDay := c.Query("orderday")
+	if orderDay == "" {
+		lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
+		if err != nil {
+			common.Logger.Infof("GetByKey failed:%s", err)
+			c.String(http.StatusInternalServerError, "Internal error")
+			return
+		}
+		orderDay = lastDay
+	}
+	stfRecord := tstock.StfList{}
+	err := infra.GetStfList("S", orderDay, &stfRecord)
 	if err != nil {
-		common.Logger.Infof("GetStfRecord failed:%s", err)
+		common.Logger.Infof("GetStfList failed:%s", err)
 		c.String(http.StatusInternalServerError, "Internal error")
 		return
 	}
-
 	startOff := 0
 	pageSize := 500
 	if page != "" {
@@ -132,11 +141,10 @@ func getStfRecord(c *gin.Context) {
 		}
 		startOff = startOff * pageSize
 	}
-
 	rsp := &dto.StfResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
-	rsp.Data = make([]*dto.StfItem, 0, len(stfRecord.Stfs))
+	rsp.Data = make([]*dto.StfItem, 0)
 	off := 0
 	total := 0
 	for _, v := range stfRecord.Stfs {
@@ -147,10 +155,9 @@ func getStfRecord(c *gin.Context) {
 			off++
 			continue
 		}
-
 		name := infra.GetSymbolName(v.Symbol)
 		rsp.Data = append(rsp.Data, &dto.StfItem{Name: name, Symbol: v.Symbol, Status: v.Status,
-			Opt: v.Opt, LowDay: v.LowDay, HighDay: v.HighDay})
+			Opt: v.Opt, LowDay: orderDay, HighDay: orderDay})
 		total++
 		if total >= pageSize {
 			break
