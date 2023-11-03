@@ -15,7 +15,8 @@ import (
 
 func postQuantPredit(c *gin.Context) {
 	name := c.Query("stock")
-	if name == "" {
+	method := c.Query("method")
+	if name == "" || method == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -24,7 +25,8 @@ func postQuantPredit(c *gin.Context) {
 		c.String(http.StatusNotFound, "Not found")
 		return
 	}
-
+	rsp := doPostQuantCal(symbol, method)
+	c.JSON(http.StatusOK, rsp)
 }
 
 func getSymbolTrend(c *gin.Context) {
