@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var Logger *zap.SugaredLogger
