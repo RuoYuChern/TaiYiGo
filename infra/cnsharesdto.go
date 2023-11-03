@@ -1,9 +1,24 @@
 package infra
 
 import (
+	"time"
+
 	"taiyigo.com/common"
 	"taiyigo.com/facade/tstock"
 )
+
+type CnQuantDto struct {
+	Day      string  `json:"day"`
+	Open     float64 `json:"open"`
+	Close    float64 `json:"close"`
+	PreClose float64 `json:"preClose"`
+	High     float64 `json:"high"`
+	Low      float64 `json:"low"`
+	Vol      uint32  `json:"vol"`
+	Amount   float64 `json:"amount"`
+	PctChg   float64 `json:"pctChg"`
+	Change   float64 `json:"change"`
+}
 
 type CnSharesDaily struct {
 	Symbol   string  `json:"ts_code"`
@@ -142,4 +157,12 @@ func ToDaily(dIt *TjDailyInfo) *tstock.StockDaily {
 	sdl.Amount = dIt.Amount
 	sdl.Vol = dIt.Vol
 	return sdl
+}
+
+func ToQuantFromCandle(candle *tstock.Candle) *CnQuantDto {
+	period := time.UnixMilli(int64(candle.Period))
+	dto := &CnQuantDto{Day: common.GetDay(common.YYYYMMDD, period), Open: candle.Open, Close: candle.Close,
+		High: candle.High, Low: candle.Low, PreClose: candle.PreClose, Amount: candle.Amount,
+		Vol: candle.Volume, Change: candle.Pcg, PctChg: candle.Pcgp}
+	return dto
 }

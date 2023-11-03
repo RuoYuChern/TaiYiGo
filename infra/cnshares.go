@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"taiyigo.com/common"
 	"taiyigo.com/facade/dto"
+	"taiyigo.com/facade/tstock"
 )
 
 type tuShareReq struct {
@@ -56,11 +57,50 @@ type tjDailyRsp struct {
 	Data   tjDailyRange `json:"data"`
 }
 
+type tjQuantReq struct {
+	Symbol string        `json:"symbol"`
+	Tid    string        `json:"tid"`
+	Method string        `json:"method"`
+	Salt   string        `json:"salt"`
+	CbUrl  string        `json:"cbUrl"`
+	Noise  int64         `json:"noise"`
+	Items  []*CnQuantDto `json:"items"`
+}
+
+type tjQuantRsp struct {
+	Status int    `json:"status"`
+	Msg    string `json:"msg"`
+	Tid    string `json:"tid"`
+	Symbol string `json:"symbol"`
+	Action string `json:"action"`
+}
+
 var (
 	tuShareUrl = "http://api.tushare.pro"
 	sinaUrl    = "http://hq.sinajs.cn"
 	sinaKUrl   = "https://quotes.sina.cn/cn/api/jsonp_v2.php"
 )
+
+func DoPostQuant(tid, symbol, method string, candleList []*tstock.Candle) *tjQuantRsp {
+	req := &tjQuantReq{Symbol: symbol, Tid: tid, Method: method, Noise: time.Now().Unix(), Items: make([]*CnQuantDto, len(candleList))}
+	salt := common.QuantMd5(tid, method, symbol, fmt.Sprintf("%d", req.Noise), common.Conf.Quotes.Sault)
+	req.Salt = salt
+	if strings.HasPrefix(common.Conf.Quotes.Quantify, "http://127.0.0.1") {
+		req.CbUrl = "http://127.0.0.1/taiyi/hq/quant-cb"
+	} else {
+		req.CbUrl = "https://www.taiji666.top/taiyi/hq/quant-cb"
+	}
+	for offset := 0; offset < len(candleList); offset++ {
+		req.Items[offset] = ToQuantFromCandle(candleList[offset])
+	}
+	tjRsp := &tjQuantRsp{Symbol: symbol, Tid: tid}
+	err := doPost(common.Conf.Quotes.Quantify, req, tjRsp)
+	if err != nil {
+		tjRsp.Status = 500
+		tjRsp.Msg = err.Error()
+	}
+	return tjRsp
+}
 
 func GetDailyFromTj(tscode string, startDate string, endDate string) ([]TjDailyInfo, error) {
 	params := make(map[string]string)

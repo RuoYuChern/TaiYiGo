@@ -33,6 +33,7 @@ type quotesConf struct {
 	TuBToKen   string `yaml:"tu.share.btoken"`
 	Sault      string `yaml:"taiji.sault"`
 	TjUrl      string `yaml:"taiji.url"`
+	Quantify   string `yaml:"taiji.quantify"`
 	HistoryEnd string `yaml:"history.end"`
 }
 

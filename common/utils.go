@@ -6,6 +6,8 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
+	"hash/crc64"
 	"io"
 	"io/fs"
 	"math"
@@ -65,6 +67,30 @@ func MD5Sign(sault string, content string, time string) string {
 	io.WriteString(wr, buff.String())
 	sign := base64.StdEncoding.EncodeToString(wr.Sum(nil))
 	return sign
+}
+
+func QuantMd5(tid, method, symbol, noise, salt string) string {
+	wr := md5.New()
+	buff := bytes.Buffer{}
+	buff.WriteString(tid)
+	buff.WriteString(method)
+	buff.WriteString(symbol)
+	buff.WriteString(noise)
+	buff.WriteString(salt)
+	io.WriteString(wr, buff.String())
+	sign := base64.StdEncoding.EncodeToString(wr.Sum(nil))
+	return sign
+}
+
+func GetTid(sault string) string {
+	second := fmt.Sprintf("%d", time.Now().Unix())
+	hash := crc64.New(crc64.MakeTable(crc64.ISO))
+	buff := bytes.Buffer{}
+	buff.WriteString(sault)
+	buff.WriteString(second)
+	io.WriteString(hash, buff.String())
+	hash.Sum64()
+	return ""
 }
 
 func GetMd5(content string, noice string) string {

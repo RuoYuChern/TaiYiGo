@@ -74,6 +74,23 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 	return tdata, nil
 }
 
+func doPostQuantCal(symbol, method string) *dto.HqCommonRsp {
+	lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
+	hqRsp := &dto.HqCommonRsp{Code: 200, Msg: "OK"}
+	if err != nil {
+		common.Logger.Infof("GetByKey failed: %s", err)
+		hqRsp.Code = 500
+		hqRsp.Msg = err.Error()
+		return hqRsp
+	}
+	dataList, err := infra.FGetSymbolNPoint(symbol, lastDay, 250)
+	tid := common.GetTid(common.Conf.Quotes.Sault)
+	rsp := infra.DoPostQuant(tid, symbol, method, dataList)
+	hqRsp.Code = rsp.Status
+	hqRsp.Msg = rsp.Msg
+	return hqRsp
+}
+
 func getStockNPoint(symbol string, lastDay string, num int) ([]*dto.CnDaily, error) {
 	dataList, err := infra.FGetSymbolNPoint(symbol, lastDay, num)
 	if err != nil {

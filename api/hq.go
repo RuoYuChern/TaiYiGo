@@ -13,6 +13,20 @@ import (
 	"taiyigo.com/infra"
 )
 
+func postQuantPredit(c *gin.Context) {
+	name := c.Query("stock")
+	if name == "" {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	symbol := infra.GetNameSymbol(name)
+	if symbol == "" {
+		c.String(http.StatusNotFound, "Not found")
+		return
+	}
+
+}
+
 func getSymbolTrend(c *gin.Context) {
 	name := c.Query("stock")
 	if name == "" {
@@ -234,12 +248,16 @@ func getHot(c *gin.Context) {
 
 func getSymbolLastN(c *gin.Context) {
 	stock := c.Query("stock")
+	name := c.Query("name")
 	date := c.Query("date")
 	num := c.Query("num")
 	rsp := &dto.GetDailyResponse{}
 	rsp.Code = http.StatusOK
 	rsp.Msg = "OK"
 	total, err := strconv.Atoi(num)
+	if name != "" {
+		stock = infra.GetNameSymbol(name)
+	}
 	if (stock == "") || (date == "") || (err != nil) {
 		rsp.Code = http.StatusBadRequest
 		rsp.Msg = "bad request"
