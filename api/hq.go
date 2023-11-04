@@ -17,15 +17,36 @@ func postQuantPredit(c *gin.Context) {
 	name := c.Query("stock")
 	method := c.Query("method")
 	if name == "" || method == "" {
+		common.Logger.Infof("Bad:name=%s,method=%s", name, method)
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 	symbol := infra.GetNameSymbol(name)
 	if symbol == "" {
+		common.Logger.Infof("Not:name=%s,method=%s", name, method)
 		c.String(http.StatusNotFound, "Not found")
 		return
 	}
 	rsp := doPostQuantCal(symbol, method)
+	c.JSON(http.StatusOK, rsp)
+}
+
+func quantCb(c *gin.Context) {
+	req := &dto.HqQuantCbReq{}
+	if err := c.BindJSON(req); err != nil {
+		common.Logger.Infof("Can not find args:%+v", req)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	infra.SaveQuantCb(req)
+	c.Status(http.StatusOK)
+}
+
+func getQuantCb(c *gin.Context) {
+	rsp := &dto.HqQuantCbRsp{}
+	rsp.Code = 200
+	rsp.Msg = "OK"
+	rsp.Data = infra.GetQuantCb()
 	c.JSON(http.StatusOK, rsp)
 }
 

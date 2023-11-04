@@ -33,6 +33,7 @@ type memData struct {
 	cnSharesNameMap map[string]string
 	orderMap        map[string]*tsorder.TOrder
 	hqData          map[string]*HqCacheData
+	quantCb         *list.List
 	lock            sync.Mutex
 }
 
@@ -43,6 +44,7 @@ func LoadData() {
 	gmenOnce.Do(func() {
 		gmemData = &memData{cnShares: make(map[string]*tstock.CnBasic), cnSharesNameMap: map[string]string{}, orderMap: make(map[string]*tsorder.TOrder)}
 		gmemData.hqData = make(map[string]*HqCacheData)
+		gmemData.quantCb = list.New()
 		LoadMemData()
 	})
 }
@@ -114,6 +116,27 @@ func (dao *DashBoardDao) Save() {
 	if err != nil {
 		common.Logger.Warnf("save %s, failed:%s", name, err)
 	}
+}
+
+func SaveQuantCb(req *dto.HqQuantCbReq) {
+	gmemData.lock.Lock()
+	if gmemData.quantCb.Len() >= 100 {
+		gmemData.quantCb = list.New()
+	}
+	gmemData.quantCb.PushBack(req)
+	gmemData.lock.Unlock()
+}
+
+func GetQuantCb() []*dto.HqQuantCbReq {
+	gmemData.lock.Lock()
+	data := make([]*dto.HqQuantCbReq, gmemData.quantCb.Len())
+	offset := 0
+	for h := gmemData.quantCb.Front(); h != nil; h = h.Next() {
+		data[offset] = h.Value.(*dto.HqQuantCbReq)
+		offset++
+	}
+	gmemData.lock.Unlock()
+	return data
 }
 
 func LoadMemData() {

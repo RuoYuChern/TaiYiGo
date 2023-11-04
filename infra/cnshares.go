@@ -86,7 +86,7 @@ func DoPostQuant(tid, symbol, method string, candleList []*tstock.Candle) *tjQua
 	salt := common.QuantMd5(tid, method, symbol, fmt.Sprintf("%d", req.Noise), common.Conf.Quotes.Sault)
 	req.Salt = salt
 	if strings.HasPrefix(common.Conf.Quotes.Quantify, "http://127.0.0.1") {
-		req.CbUrl = "http://127.0.0.1/taiyi/hq/quant-cb"
+		req.CbUrl = "http://127.0.0.1:9090/taiyi/hq/quant-cb"
 	} else {
 		req.CbUrl = "https://www.taiji666.top/taiyi/hq/quant-cb"
 	}
@@ -98,6 +98,7 @@ func DoPostQuant(tid, symbol, method string, candleList []*tstock.Candle) *tjQua
 	if err != nil {
 		tjRsp.Status = 500
 		tjRsp.Msg = err.Error()
+		common.Logger.Infof("doPost: url=%s faild", common.Conf.Quotes.Quantify)
 	}
 	return tjRsp
 }

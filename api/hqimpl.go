@@ -84,6 +84,11 @@ func doPostQuantCal(symbol, method string) *dto.HqCommonRsp {
 		return hqRsp
 	}
 	dataList, err := infra.FGetSymbolNPoint(symbol, lastDay, 250)
+	if err != nil {
+		hqRsp.Code = 500
+		hqRsp.Msg = err.Error()
+		return hqRsp
+	}
 	tid := common.GetTid(common.Conf.Quotes.Sault)
 	rsp := infra.DoPostQuant(tid, symbol, method, dataList)
 	hqRsp.Code = rsp.Status

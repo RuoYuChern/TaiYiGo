@@ -261,3 +261,18 @@ type HqCommonRsp struct {
 	Msg  string `json:"msg"`
 	Data any    `json:"data"`
 }
+
+type HqQuantCbReq struct {
+	Status int    `json:"status"`
+	Msg    string `json:"msg"`
+	Tid    string `json:"tid"`
+	Method string `json:"method"`
+	Symbol string `json:"symbol"`
+	Action string `json:"action"`
+}
+
+type HqQuantCbRsp struct {
+	Code int             `json:"code"`
+	Msg  string          `json:"msg"`
+	Data []*HqQuantCbReq `json:"data"`
+}
