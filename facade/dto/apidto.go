@@ -268,6 +268,8 @@ type HqQuantCbReq struct {
 	Tid    string `json:"tid"`
 	Method string `json:"method"`
 	Symbol string `json:"symbol"`
+	Name   string `json:"name"`
+	Day    string `json:"day"`
 	Action string `json:"action"`
 }
 

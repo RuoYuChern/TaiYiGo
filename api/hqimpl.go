@@ -74,7 +74,7 @@ func calSymbolTrend(symbol string) ([]*dto.SymbolDaily, error) {
 	return tdata, nil
 }
 
-func doPostQuantCal(symbol, method string) *dto.HqCommonRsp {
+func doPostQuantCal(name, symbol, method string) *dto.HqCommonRsp {
 	lastDay, err := infra.GetByKey(infra.CONF_TABLE, infra.KEY_CNLOADHISTORY)
 	hqRsp := &dto.HqCommonRsp{Code: 200, Msg: "OK"}
 	if err != nil {
@@ -90,7 +90,7 @@ func doPostQuantCal(symbol, method string) *dto.HqCommonRsp {
 		return hqRsp
 	}
 	tid := common.GetTid(common.Conf.Quotes.Sault)
-	rsp := infra.DoPostQuant(tid, symbol, method, dataList)
+	rsp := infra.DoPostQuant(tid, name, symbol, method, dataList)
 	hqRsp.Code = rsp.Status
 	hqRsp.Msg = rsp.Msg
 	return hqRsp

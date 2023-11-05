@@ -409,6 +409,8 @@ func testHeap() {
 func main() {
 	c := 'H'
 	testBsd()
+	tid := common.GetTid("abcd")
+	log.Printf("Tid:%s: %v", tid, common.VerifyTid("abcd", tid))
 	switch c {
 	case 'b':
 		testQuery()

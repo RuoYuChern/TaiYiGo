@@ -59,6 +59,7 @@ type tjDailyRsp struct {
 
 type tjQuantReq struct {
 	Symbol string        `json:"symbol"`
+	Name   string        `json:"name"`
 	Tid    string        `json:"tid"`
 	Method string        `json:"method"`
 	Salt   string        `json:"salt"`
@@ -81,8 +82,9 @@ var (
 	sinaKUrl   = "https://quotes.sina.cn/cn/api/jsonp_v2.php"
 )
 
-func DoPostQuant(tid, symbol, method string, candleList []*tstock.Candle) *tjQuantRsp {
-	req := &tjQuantReq{Symbol: symbol, Tid: tid, Method: method, Noise: time.Now().Unix(), Items: make([]*CnQuantDto, len(candleList))}
+func DoPostQuant(tid, name, symbol, method string, candleList []*tstock.Candle) *tjQuantRsp {
+	req := &tjQuantReq{Symbol: symbol, Name: name, Tid: tid, Method: method, Noise: time.Now().Unix(),
+		Items: make([]*CnQuantDto, len(candleList))}
 	salt := common.QuantMd5(tid, method, symbol, fmt.Sprintf("%d", req.Noise), common.Conf.Quotes.Sault)
 	req.Salt = salt
 	if strings.HasPrefix(common.Conf.Quotes.Quantify, "http://127.0.0.1") {

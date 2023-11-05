@@ -89,8 +89,21 @@ func GetTid(sault string) string {
 	buff.WriteString(sault)
 	buff.WriteString(second)
 	io.WriteString(hash, buff.String())
-	hash.Sum64()
-	return ""
+	return fmt.Sprintf("%s%s", second, strconv.FormatInt(int64(hash.Sum64()), 36))
+}
+
+func VerifyTid(sault, tid string) bool {
+	contents := strings.SplitN(tid, "-", 2)
+	if len(contents) != 2 {
+		return false
+	}
+	hash := crc64.New(crc64.MakeTable(crc64.ISO))
+	buff := bytes.Buffer{}
+	buff.WriteString(sault)
+	buff.WriteString(contents[0])
+	io.WriteString(hash, buff.String())
+	h := strconv.FormatInt(int64(hash.Sum64()), 36)
+	return strings.HasSuffix(h, contents[1])
 }
 
 func GetMd5(content string, noice string) string {

@@ -27,7 +27,7 @@ func postQuantPredit(c *gin.Context) {
 		c.String(http.StatusNotFound, "Not found")
 		return
 	}
-	rsp := doPostQuantCal(symbol, method)
+	rsp := doPostQuantCal(name, symbol, method)
 	c.JSON(http.StatusOK, rsp)
 }
 
@@ -35,6 +35,11 @@ func quantCb(c *gin.Context) {
 	req := &dto.HqQuantCbReq{}
 	if err := c.BindJSON(req); err != nil {
 		common.Logger.Infof("Can not find args:%+v", req)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	if !common.VerifyTid(common.Conf.Quotes.Sault, req.Tid) {
+		common.Logger.Infof("Tid:%s is error", req.Tid)
 		c.Status(http.StatusBadRequest)
 		return
 	}
