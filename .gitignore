@@ -4,7 +4,8 @@
 **/target
 **/*.json
 /log
-/app/taiyigo 
+/app/taiyi
+/fuzz/fuzz  
 **/logs
 **/*.exe
 **/**/.DS_Store
